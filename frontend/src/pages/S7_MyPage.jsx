@@ -208,7 +208,7 @@ export default function S7() {
             );
 
             setMessage(
-                `${label}이 저장되었습니다.`
+                `${label === '회사' ? '회사가' : '집이'} 저장되었습니다.`
             );
         } catch (error) {
             console.error(
