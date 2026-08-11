@@ -206,7 +206,7 @@ export default function S2_Home() {
             return;
         }
 
-        // 집 → 출발지
+        // 출발지로 사용할 저장 장소
         if (location.type === 'departure') {
             setDeparture(location.value);
 
@@ -219,7 +219,7 @@ export default function S2_Home() {
             return;
         }
 
-        // 회사 → 도착지
+        // 도착지로 사용할 저장 장소
         if (location.type === 'destination') {
             setDestination(location.value);
 
@@ -247,7 +247,7 @@ export default function S2_Home() {
                           savedLocationData.home.name,
                       place:
                           savedLocationData.home,
-                      type: 'departure'
+                      type: 'destination'
                   }
               ]
             : []),
