@@ -21,6 +21,8 @@ export default function DepartureTimeModal({ isOpen, onClose, onConfirm, initial
             setIsCustomTime(initialTime !== 'now');
             setSelectedDateTime(getInitialDateTime());
         }
+        // getInitialDateTime 은 initialTime 만 참조한다(매 렌더 새로 만들어질 뿐).
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, initialTime]);
 
     if (!isOpen) return null;
