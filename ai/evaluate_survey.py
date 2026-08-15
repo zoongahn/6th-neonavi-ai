@@ -25,6 +25,8 @@ import openpyxl
 
 from .features import vectorize
 from .recommender import baseline_b, model_a
+from .recommender import weights as rule_weights
+from .schema import PREFERENCE_AXES
 
 _DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 _DEFAULT_XLSX = os.path.join(_DATA_DIR, 'survey',
@@ -197,8 +199,96 @@ def evaluate(path=None, verbose=True) -> dict:
     return result
 
 
+def _axis_matrix(case):
+    """후보별 성향축 만족도 + id 목록."""
+    norms = vectorize.normalize(
+        [vectorize.build_feature_vector(r) for r in case['routes']])
+    return [r['id'] for r in case['routes']], [vectorize.project_to_axes(n) for n in norms]
+
+
+def _fit_weights(rows, steps=600, lr=0.05):
+    """사람이 고른 경로가 나머지보다 높게 나오도록 축 가중치를 적합(pairwise logistic)."""
+    import torch
+
+    diffs = []
+    for ids, ax, human in rows:
+        hv = torch.tensor([ax[ids.index(human)][a] for a in PREFERENCE_AXES])
+        for i, rid in enumerate(ids):
+            if rid != human:
+                diffs.append(hv - torch.tensor([ax[i][a] for a in PREFERENCE_AXES]))
+    if not diffs:
+        return None
+    x = torch.stack(diffs)
+    w = torch.zeros(len(PREFERENCE_AXES), requires_grad=True)
+    opt = torch.optim.Adam([w], lr=lr)
+    for _ in range(steps):
+        opt.zero_grad()
+        torch.nn.functional.softplus(-(x @ w)).mean().backward()
+        opt.step()
+    return w.detach()
+
+
+def refit(path=None, group_fn=None, folds=3, verbose=True) -> dict:
+    """축 가중치를 사람 데이터로 적합해 held-out 평가.
+
+    group_fn 을 주면 그 그룹별로 따로 적합한다(개인화 검증용). 표본이 15건 미만인
+    그룹은 전역 가중치로 대신한다 — 적은 표본에 맞추면 과적합만 는다.
+    """
+    import torch
+
+    cases = group_by_response(load_rows(path))
+    data = []
+    for c in cases:
+        ids, ax = _axis_matrix(c)
+        data.append({'r': c['respondent_id'], 'ids': ids, 'ax': ax,
+                     'human': c['human_choice'], 'case': c})
+    rids = sorted({d['r'] for d in data})
+    key = group_fn or (lambda case: 'ALL')
+
+    top1 = pair = ptot = n = 0
+    for k in range(folds):
+        held = {r for i, r in enumerate(rids) if i % folds == k}
+        tr = [d for d in data if d['r'] not in held]
+        glob = _fit_weights([(d['ids'], d['ax'], d['human']) for d in tr])
+        ws = {}
+        for g in {key(d['case']) for d in tr}:
+            sub = [d for d in tr if key(d['case']) == g]
+            ws[g] = (_fit_weights([(d['ids'], d['ax'], d['human']) for d in sub])
+                     if len(sub) >= 15 else glob)
+
+        for d in (x for x in data if x['r'] in held):
+            w = ws.get(key(d['case']), glob)
+            scores = [float(torch.tensor([d['ax'][i][a] for a in PREFERENCE_AXES]) @ w)
+                      for i in range(len(d['ids']))]
+            top1 += d['ids'][max(range(len(scores)), key=lambda i: scores[i])] == d['human']
+            hi = d['ids'].index(d['human'])
+            for i in range(len(scores)):
+                if i != hi:
+                    ptot += 1
+                    pair += scores[hi] > scores[i]
+            n += 1
+
+    whole = _fit_weights([(d['ids'], d['ax'], d['human']) for d in data])
+    pos = whole.clamp(min=0)
+    result = {
+        'top1': top1 / n, 'pairwise': pair / ptot,
+        'weights_raw': {a: round(float(whole[i]), 2) for i, a in enumerate(PREFERENCE_AXES)},
+        'weights_norm': {a: round(float((pos / pos.sum())[i]), 3)
+                         for i, a in enumerate(PREFERENCE_AXES)},
+    }
+    if verbose:
+        print(f'  top-1 {result["top1"]*100:5.1f}%   pairwise {result["pairwise"]*100:5.1f}%'
+              f'   가중치 {result["weights_norm"]}')
+    return result
+
+
 def main():
     evaluate()
+    print('\n── 축 가중치를 사람 데이터로 재적합 (응답자 held-out) ──')
+    print('  개인화 없음:', end=' ')
+    refit()
+    print('  규칙 성향별:', end=' ')
+    refit(group_fn=lambda c: rule_weights.profile_to_mode(c['profile']))
 
 
 if __name__ == '__main__':
