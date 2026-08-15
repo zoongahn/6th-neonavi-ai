@@ -30,7 +30,7 @@ class TripRecordSerializer(serializers.ModelSerializer):
             'id', 'profile', 'passenger', 'load_kg',
             'origin_name', 'destination_name',
             'origin_lng', 'origin_lat', 'destination_lng', 'destination_lat',
-            'mode', 'auto_recommend',
+            'mode', 'auto_recommend', 'preference_axis',
             'candidate_count', 'recommended_route_id', 'selected_route_id', 'accepted',
             'distance_km', 'duration_min', 'toll',
             'rating', 'created_at',

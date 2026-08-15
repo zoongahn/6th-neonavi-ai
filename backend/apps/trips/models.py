@@ -33,6 +33,9 @@ class TripRecord(models.Model):
     # ── 어떤 조건으로 ──
     mode = models.CharField(max_length=10, choices=MODE, blank=True)
     auto_recommend = models.BooleanField(default=True)
+    # 모델이 실제로 추론한 성향 축. mode 는 화면이 표시한 라벨이라
+    # auto_recommend=True 면 랭킹 근거와 다를 수 있어 따로 남긴다.
+    preference_axis = models.CharField(max_length=10, blank=True)
 
     # ── 추천 vs 선택 (층3 핵심) ──
     candidate_count = models.PositiveIntegerField(default=0)

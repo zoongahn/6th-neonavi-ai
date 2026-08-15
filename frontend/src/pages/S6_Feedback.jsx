@@ -1,7 +1,46 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 
+import { saveTrip, saveFeedback } from '../api/naviApi';
+import { readProfile } from '../utils/profileStorage';
+
 const HISTORY_STORAGE_KEY = 'neonaviDriveHistories';
+
+const PASSENGER_MAP = {
+    혼자: 'alone', 가족: 'family', 노약자: 'vulnerable', 친구: 'friend'
+};
+
+/** 화면 상태 → 서버 주행 기록. 숫자는 "12.5km"/"33분" 같은 표시 문자열일 수 있다. */
+const toNumber = (value) => {
+    const n = parseFloat(String(value ?? '').replace(/[^0-9.]/g, ''));
+    return Number.isFinite(n) ? n : null;
+};
+
+const buildTripPayload = (trip, departure, destination) => {
+    const route = trip.route || {};
+    const profile = readProfile();
+    return {
+        profile: profile?.id ?? null,
+        passenger: PASSENGER_MAP[trip.passenger] || trip.passenger || '',
+        load_kg: toNumber(trip.loadKg) ?? null,
+        origin_name: departure,
+        destination_name: destination,
+        origin_lng: trip.departurePlace?.lng ?? null,
+        origin_lat: trip.departurePlace?.lat ?? null,
+        destination_lng: trip.destinationPlace?.lng ?? null,
+        destination_lat: trip.destinationPlace?.lat ?? null,
+        mode: String(trip.mode || '').toLowerCase(),
+        auto_recommend: trip.autoRecommend ?? true,
+        preference_axis: trip.preferenceAxis || '',
+        candidate_count: trip.candidateCount ?? 0,
+        // 이 두 개가 층3의 핵심 — 같으면 추천 수용, 다르면 거절
+        recommended_route_id: trip.recommendedRouteId || '',
+        selected_route_id: route.routeId || '',
+        distance_km: toNumber(route.distance),
+        duration_min: toNumber(route.time),
+        toll: toNumber(route.fee)
+    };
+};
 
 const RECENT_TRIP_STORAGE_KEYS = [
     'neonaviRecentTrip',
@@ -361,7 +400,7 @@ export default function S6_Feedback() {
     const config = getFeedbackConfig();
 
     // 피드백 저장
-    const handleSubmitFeedback = () => {
+    const handleSubmitFeedback = async () => {
         if (rating === 0) {
             return;
         }
@@ -451,6 +490,20 @@ export default function S6_Feedback() {
             HISTORY_STORAGE_KEY,
             JSON.stringify(nextHistories)
         );
+
+        /*
+            서버에도 남긴다. 로컬 기록은 이 기기에서만 보이지만,
+            추천 수용률·만족도 집계는 서버에 쌓인 것만으로 계산된다.
+            서버가 꺼져 있어도 화면 흐름은 막지 않는다(로컬 저장은 이미 끝났다).
+        */
+        try {
+            const saved = await saveTrip(
+                buildTripPayload(trip, departure, destination)
+            );
+            await saveFeedback(saved.id, { rating });
+        } catch (error) {
+            console.warn('주행 기록을 서버에 저장하지 못했습니다.', error);
+        }
 
         navigate('/home', {
             replace: true

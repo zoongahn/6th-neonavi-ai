@@ -119,7 +119,12 @@ export default function S4_RouteResult() {
             mode: selectedMode,
             autoRecommend,
             departureTime, // 설정된 시간 정보 저장
-            route: selectedRoute
+            route: selectedRoute,
+            // 층3 지표용 — 모델이 1순위로 민 경로와 사용자가 실제로 고른 경로가
+            // 같은지 세려면 둘 다 필요하다. 여기서 안 넘기면 S6에서 복원할 수 없다.
+            recommendedRouteId: routes[0]?.routeId || '',
+            candidateCount: routes.length,
+            preferenceAxis: preference?.axis || ''
         };
 
         sessionStorage.setItem(
