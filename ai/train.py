@@ -55,12 +55,13 @@ def split_rows(rows, seed=0, val=0.15, test=0.15):
 
 
 def build_tensors(rows):
-    """행 리스트 → (user, routeA, routeB, y, w_rule) 텐서.
+    """행 리스트 → (user, routeA, routeB, y, w_rule, fA_rule, fB_rule) 텐서.
 
     경로특성은 쌍 내 상대 정규화(vectorize.normalize) — 라벨(pairwise_label)이
-    같은 방식으로 생성됐으므로 표현 정합. w_rule = 규칙 가중치 증류 앵커.
+    같은 방식으로 생성됐으므로 표현 정합.
+    w_rule = 규칙 가중치 증류 앵커(User Tower), f*_rule = 규칙 축 만족도 앵커(Route Tower).
     """
-    users, ra, rb, ys, wr = [], [], [], [], []
+    users, ra, rb, ys, wr, fa, fb = [], [], [], [], [], [], []
     for r in rows:
         prof = _profile_from_row(r)
         na, nb = vectorize.normalize([_feat_from_row(r, 'A'), _feat_from_row(r, 'B')])
@@ -70,11 +71,11 @@ def build_tensors(rows):
         ys.append(float(r['y']))
         rw = rule_weights.profile_to_weights(prof)
         wr.append([rw[a] for a in PREFERENCE_AXES])
-    return (torch.tensor(users, dtype=torch.float32),
-            torch.tensor(ra, dtype=torch.float32),
-            torch.tensor(rb, dtype=torch.float32),
-            torch.tensor(ys, dtype=torch.float32),
-            torch.tensor(wr, dtype=torch.float32))
+        axa, axb = vectorize.project_to_axes(na), vectorize.project_to_axes(nb)
+        fa.append([axa[a] for a in PREFERENCE_AXES])
+        fb.append([axb[a] for a in PREFERENCE_AXES])
+    t = lambda v: torch.tensor(v, dtype=torch.float32)
+    return t(users), t(ra), t(rb), t(ys), t(wr), t(fa), t(fb)
 
 
 @torch.no_grad()
@@ -91,24 +92,34 @@ def pairwise_accuracy(model, user, ra, rb, y, margin=0.05):
 
 
 def train(pairs_path=None, ckpt_path=None, epochs=60, lr=1e-3,
-          batch_size=256, seed=0, weight_decay=1e-5, lambda_w=3.0, verbose=True):
+          batch_size=256, seed=0, weight_decay=1e-5, lambda_w=3.0, lambda_f=12.0,
+          verbose=True):
     """lambda_w: User Tower 증류 손실 계수. 순수 pairwise loss 는 w·f 곱만 제약해
-    w 가 임의 축으로 붕괴(식별 불가) → 규칙 가중치로 앵커링해 해석가능·안정화."""
+    w 가 임의 축으로 붕괴(식별 불가) → 규칙 가중치로 앵커링해 해석가능·안정화.
+
+    lambda_f: Route Tower 증류 손실 계수. w 만 앵커링하면 f 의 3축이 의미를 잃고
+    단일 '품질' 스칼라로 붕괴한다(학습쌍이 트레이드오프뿐이라 그 밖에선 축을 구분할
+    이유가 없다). 서빙 후보집합에서 축 상관 +0.89 → 성향이 달라도 같은 랭킹.
+    규칙 축 만족도로 앵커링해 축 의미를 강제한다.
+    12.0 은 스윕(0~40)에서 축 상관 ≤+0.30 을 시드 3개 모두 여유 있게 만족하는 값.
+    설계·수용기준: docs/축붕괴_f앵커_설계.md
+    """
     pairs_path = pairs_path or os.path.join(_DATA_DIR, 'pairs.parquet')
     ckpt_path = ckpt_path or os.path.join(_DATA_DIR, 'model_a.pt')
 
     rows = load_pairs(pairs_path)
     train_r, val_r, test_r = split_rows(rows, seed=seed)
 
-    utr, atr, btr, ytr, wtr = build_tensors(train_r)
-    uva, ava, bva, yva, _ = build_tensors(val_r)
-    ute, ate, bte, yte, _ = build_tensors(test_r)
+    utr, atr, btr, ytr, wtr, fatr, fbtr = build_tensors(train_r)
+    uva, ava, bva, yva, *_ = build_tensors(val_r)
+    ute, ate, bte, yte, *_ = build_tensors(test_r)
 
     torch.manual_seed(seed)
     model = TwoTower(USER_DIM, ROUTE_DIM, latent=len(PREFERENCE_AXES))
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     rank_loss = nn.BCEWithLogitsLoss()   # RankNet: 로짓=score차, 타깃=소프트 y
     w_loss = nn.MSELoss()                # 증류: User Tower 출력 → 규칙 가중치
+    f_loss = nn.MSELoss()                # 증류: Route Tower 출력 → 규칙 축 만족도
 
     n = utr.shape[0]
     best_val, best_state = -1.0, None
@@ -121,7 +132,11 @@ def train(pairs_path=None, ckpt_path=None, epochs=60, lr=1e-3,
             opt.zero_grad()
             logits = model(utr[idx], atr[idx], btr[idx])
             w_pred = model.weights(utr[idx])
-            loss = rank_loss(logits, ytr[idx]) + lambda_w * w_loss(w_pred, wtr[idx])
+            f_anchor = 0.5 * (f_loss(model.satisfaction(atr[idx]), fatr[idx])
+                              + f_loss(model.satisfaction(btr[idx]), fbtr[idx]))
+            loss = (rank_loss(logits, ytr[idx])
+                    + lambda_w * w_loss(w_pred, wtr[idx])
+                    + lambda_f * f_anchor)
             loss.backward()
             opt.step()
             total += loss.item() * len(idx)
@@ -147,6 +162,8 @@ def train(pairs_path=None, ckpt_path=None, epochs=60, lr=1e-3,
         'normalization': 'per_set_minmax',   # 후보집합 내 상대 정규화(vectorize.normalize)
         'feature_names': list(FEATURE_NAMES),
         'axes': list(PREFERENCE_AXES),
+        'lambda_w': lambda_w,
+        'lambda_f': lambda_f,
         'metrics': {'train': tr_acc, 'val': va_acc, 'test': te_acc},
     }, ckpt_path)
 
