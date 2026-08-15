@@ -70,6 +70,11 @@ def build_feature_vector(route, enrich: bool = False) -> dict:
       - slope: elevation.route_slope (Open Topo Data/로컬 DEM)
       - signal_count·road_type·speed_limit: road.get_index().route_features (공공데이터 공간조인)
     enrich=False(기본)면 외부 특성은 0.0 placeholder — 테스트·합성 데이터에서 무거운 의존 회피.
+
+    ⚠️ route 가 FEATURE_NAMES 키를 이미 갖고 있으면(저장된 parquet 행, 설문처럼 서술로
+    주어진 가상 경로) **그 값을 그대로 쓴다**. 좌표에서 다시 계산해 덮어쓰면 이미 아는
+    값을 버리게 되고, enrich=False 일 때 slope·signal_count·road_type·speed_limit 이
+    통째로 0 이 되어 해당 축이 조용히 사라진다.
     """
     coords = _get(route, 'coords', []) or []
     dist = float(_get(route, 'distance_km', 0.0))
@@ -87,7 +92,7 @@ def build_feature_vector(route, enrich: bool = False) -> dict:
         from . import road
         pub = road.get_index().route_features(coords)
 
-    return {
+    computed = {
         'distance_km':  dist,
         'duration_min': dur,
         'avg_speed':    avg_speed_kmh(dist, dur),
@@ -101,6 +106,14 @@ def build_feature_vector(route, enrich: bool = False) -> dict:
         'road_type':    float(pub['road_type']),
         'speed_limit':  float(pub['speed_limit']),
     }
+
+    # 이미 아는 값이 route 에 실려 있으면 재계산분을 덮지 않는다.
+    if isinstance(route, dict):
+        for name in FEATURE_NAMES:
+            given = route.get(name)
+            if given is not None:
+                computed[name] = float(given)
+    return computed
 
 
 def normalize(vectors: list) -> list:
