@@ -38,6 +38,8 @@ export default function S4_RouteResult() {
     const [routes, setRoutes] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
+    // 성향은 사용자당 하나라 경로마다 반복하지 않고 목록 위에 한 번만 보여준다.
+    const [preference, setPreference] = useState(null);
 
     // 💡 모달 상태 및 설정된 시간 상태 추가
     const [isTimeModalOpen, setIsTimeModalOpen] = useState(false);
@@ -84,10 +86,13 @@ export default function S4_RouteResult() {
                     arrivalTime: formatArrival(route.duration_min),
                     distance: `${route.distance_km}km`,
                     fee: `${route.toll.toLocaleString()}원`,
+                    // 이 경로를 1순위로 고르는 다른 성향들 (없으면 빈 배열)
+                    preferredBy: route.preferred_by_labels || [],
                     path: route.path || []
                 }));
 
                 setRoutes(list);
+                setPreference(data.preference || null);
                 setSelectedRouteId(list.length ? 0 : null);
             } catch (error) {
                 if (!isActive) return;
@@ -170,6 +175,20 @@ export default function S4_RouteResult() {
                             {autoRecommend ? '성향 기반' : '직접 선택'}
                         </span>
                     </div>
+
+                    {/* 추론된 성향은 여기서 한 번만. 경로마다 반복하면 설명이 아니라 소음이 된다. */}
+                    {preference && (
+                        <p className="text-xs text-gray-600 mt-2 pt-2 border-t border-gray-100">
+                            입력하신 정보로는{' '}
+                            <span className="font-bold text-gray-900">{preference.label}</span>
+                            을(를) 우선하는 성향입니다
+                            {preference.unanimous && (
+                                <span className="block text-[11px] text-gray-400 mt-0.5">
+                                    이 구간은 어떤 성향이어도 같은 경로가 1순위입니다
+                                </span>
+                            )}
+                        </p>
+                    )}
                 </div>
             </div>
 
@@ -227,6 +246,20 @@ export default function S4_RouteResult() {
                                         상세
                                     </button>
                                 </div>
+                                {/* 다른 성향이었다면 이 경로가 1순위였다는 표시 */}
+                                {route.preferredBy.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mb-1.5">
+                                        {route.preferredBy.map((label) => (
+                                            <span
+                                                key={label}
+                                                className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded"
+                                            >
+                                                {label} 우선이라면
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+
                                 <p className="text-xs text-gray-500 mb-2 leading-5">
                                     {route.description}
                                 </p>

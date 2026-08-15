@@ -31,7 +31,10 @@ export function buildRecommendRequest(profile, trip) {
         origin: toPoint(trip.departurePlace) || trip.departure,
         destination: toPoint(trip.destinationPlace) || trip.destination,
         mode: (trip.mode || 'comfort').toLowerCase(),
-        auto_recommend: trip.autoRecommend ?? true
+        auto_recommend: trip.autoRecommend ?? true,
+        // 'now' 또는 'YYYY-MM-DDThh:mm'(로컬 시각). 백엔드가 카카오 형식으로 바꾸고,
+        // 과거 시각이면 현재 기준으로 되돌린다(카카오가 과거를 조용히 무시하므로).
+        departure_time: trip.departureTime || 'now'
     };
 }
 

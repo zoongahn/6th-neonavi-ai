@@ -17,6 +17,8 @@ import requests
 from ..schema import CandidateRoute
 
 KAKAO_URL = "https://apis-navi.kakaomobility.com/v1/directions"
+# 미래 운행 정보 — 같은 응답 구조에 departure_time 만 추가로 받는다(무료 5,000건/일).
+KAKAO_FUTURE_URL = "https://apis-navi.kakaomobility.com/v1/future/directions"
 
 
 # ── 설정/인증 ──────────────────────────────────────────────────────
@@ -61,8 +63,15 @@ def _fmt(p) -> str:
 
 # ── 호출 ───────────────────────────────────────────────────────────
 
-def _call(origin, dest, priority="RECOMMEND", waypoint=None, timeout=10) -> list[dict]:
-    """카카오 1회 호출 → result_code==0 인 raw route dict 리스트."""
+def _call(origin, dest, priority="RECOMMEND", waypoint=None, timeout=10,
+          departure_time=None) -> list[dict]:
+    """카카오 1회 호출 → result_code==0 인 raw route dict 리스트.
+
+    departure_time(YYYYMMDDHHMM)을 주면 미래 운행 정보 엔드포인트로 보낸다.
+    ⚠️ 과거 시각이면 카카오가 **에러 없이 현재 기준으로 답한다**. 기능이 도는 것처럼
+    보이면서 결과만 틀리므로, 미래인지 확인한 값만 넘길 것
+    (backend apps/routes/services.parse_departure_time 이 담당).
+    """
     params = {
         "origin": _fmt(origin),
         "destination": _fmt(dest),
@@ -72,8 +81,12 @@ def _call(origin, dest, priority="RECOMMEND", waypoint=None, timeout=10) -> list
     }
     if waypoint is not None:
         params["waypoints"] = _fmt(waypoint)
+    url = KAKAO_URL
+    if departure_time:
+        url = KAKAO_FUTURE_URL
+        params["departure_time"] = departure_time
     try:
-        resp = requests.get(KAKAO_URL, headers=_headers(), params=params, timeout=timeout)
+        resp = requests.get(url, headers=_headers(), params=params, timeout=timeout)
     except requests.RequestException:
         return []
     if resp.status_code != 200:
@@ -134,11 +147,14 @@ def fetch_pool(
     dedupe_threshold: float = 0.8,
     serve_detour: float = 1.5,
     serve_top: int = 5,
+    departure_time=None,
 ) -> list[CandidateRoute]:
     """O-D → 중복 제거된 후보 경로 리스트.
 
     mode='collect' : 우회 제한 없이 전부 (학습 수집, 다양성 최대) — 현재 기본.
     mode='serve'   : best 시간의 serve_detour 배 이내, 시간 오름차순 top serve_top (서빙).
+
+    departure_time : YYYYMMDDHHMM (미래). 주면 그 시각 기준 예상 소요시간으로 받는다.
 
     호출 수 = len(priorities) + len(fracs)*len(mags)*2 (경유지 ±).
     기본값 = 2 + 3*1*2 = 8회/O-D.
@@ -148,7 +164,7 @@ def fetch_pool(
 
     raw: list[dict] = []
     for p in priorities:
-        raw += _call((ox, oy), (dx, dy), priority=p)
+        raw += _call((ox, oy), (dx, dy), priority=p, departure_time=departure_time)
 
     # O-D 직선의 수직 단위벡터로 경유지 교란
     vx, vy = dx - ox, dy - oy
@@ -159,7 +175,8 @@ def fetch_pool(
         for mag in waypoint_mags:
             for sgn in (1, -1):
                 wp = (bx + px * mag * sgn, by + py * mag * sgn)
-                raw += _call((ox, oy), (dx, dy), priority="RECOMMEND", waypoint=wp)
+                raw += _call((ox, oy), (dx, dy), priority="RECOMMEND", waypoint=wp,
+                             departure_time=departure_time)
 
     # 파싱 + 격자 Jaccard 중복 제거
     distinct: list[CandidateRoute] = []
