@@ -151,10 +151,17 @@ def recommend(payload: dict) -> dict:
     # 3. 학습모델 스코어링 (공공데이터·DEM 특성 포함)
     handle = _get_model()
     try:
-        recs = model_a.recommend(model_profile, pool, model=handle, enrich=True)
+        # 자동 추천이면 프로필에서 성향을 추론하고, 사용자가 모드를 직접 골랐으면
+        # 그 모드의 가중치로 랭킹한다. 고른 모드가 랭킹에 반영되지 않으면
+        # 제목만 바뀌고 순서는 그대로여서 선택 자체가 무의미해진다.
+        chosen = None if auto_recommend else model_a.mode_weights(mode, model=handle)
+
+        recs = model_a.recommend(model_profile, pool, model=handle, enrich=True,
+                                 weights=chosen)
         # 반사실 설명: 다른 성향이었다면 어떤 경로가 1순위였을까
         counterfactual = model_a.counterfactual_tops(pool, model=handle, enrich=True)
-        preference = model_a.describe_preference(model_profile, model=handle)
+        preference = model_a.describe_preference(model_profile, model=handle,
+                                                 weights=chosen)
     except Exception as exc:
         raise RecommendError(f'추천 계산에 실패했습니다: {exc}') from exc
 
@@ -193,6 +200,11 @@ def recommend(payload: dict) -> dict:
         'auto_recommend': auto_recommend,
         'departure_time': departure_time,
         # 성향은 사용자당 하나 → 목록 상단에 한 번만 표시하라는 뜻으로 최상위에 둔다.
-        'preference': {**preference, 'unanimous': unanimous},
+        # source: 추론한 것인지(inferred) 사용자가 고른 것인지(selected) — 문구가 달라진다.
+        'preference': {
+            **preference,
+            'unanimous': unanimous,
+            'source': 'inferred' if auto_recommend else 'selected',
+        },
         'routes': routes,
     }
