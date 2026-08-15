@@ -60,13 +60,18 @@ def avg_speed_kmh(distance_km: float, duration_min: float) -> float:
 
 
 def _turn_density(route, dist_km: float) -> float:
-    """회전·교차로 스텝 밀도(개/km). 출발(type 100)·목적(101)은 제외.
+    """회전·교차로 스텝 밀도(개/km). 출발(100)·목적(101)·**경유지(1000)** 제외.
 
     (guide type 코드 의미표 확정 전 프록시: 끝점 제외 스텝 수. 신호등 대체 신호이기도 함)
+
+    ⚠️ 1000(경유지)은 **우리가 pool 을 넓히려고 넣은 가짜 경유지**가 만든 스텝이다.
+    실제 회전이 아닌데 경유지 1개당 2개(섹션 닫힘+열림)가 잡혀, 교란으로 만든
+    후보만 turn_count 가 부풀어 오른다. turn_count 는 sports·comfort 축에
+    들어가므로 이건 "대안 경로일수록 불리"라는 계통 편향이 된다.
     """
     guides = _get(route, 'guides', []) or []
     turns = sum(1 for g in guides
-                if isinstance(g, dict) and g.get('type') not in (100, 101))
+                if isinstance(g, dict) and g.get('type') not in (100, 101, 1000))
     return turns / dist_km if dist_km > 0 else 0.0
 
 

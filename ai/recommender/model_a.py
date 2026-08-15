@@ -63,6 +63,12 @@ def _highlights(idx: int, feats: list) -> list:
     한 요청 안에서 모든 후보에 같은 문구가 붙어 설명 기능을 잃으므로,
     후보들과 실제로 비교해 이 경로가 **유일하게 1등인 항목**만 근거로 쓴다.
     """
+    # 후보가 하나면 "후보집합에서 유일하게 1등"이라는 말 자체가 성립하지 않는다.
+    # (예전엔 2등을 찾으려다 IndexError 로 추천 전체가 500 이 됐다. 짧은 O-D 나
+    #  경유지 교란이 전부 중복 제거되면 실제로 pool 이 1개가 된다.)
+    if len(feats) < 2:
+        return []
+
     out = []
     for key, label, lower_better, fmt in _FACT_SPECS:
         vals = [f.get(key) for f in feats]
@@ -121,9 +127,16 @@ def _tradeoff(idx: int, ref: int, feats: list) -> list:
     return [x for x in (better, worse) if x]
 
 
-def _reason(highlights: list) -> str:
-    """근거 조각 → 한 줄 문장. 내세울 게 없으면 솔직히 그렇게 쓴다."""
-    return ' · '.join(highlights) if highlights else '추천 경로와 비슷한 대안'
+def _reason(highlights: list, solo: bool = False) -> str:
+    """근거 조각 → 한 줄 문장. 내세울 게 없으면 솔직히 그렇게 쓴다.
+
+    solo: 후보가 하나뿐인 경우. 비교 상대가 없으니 강점도 대안도 말할 수 없다.
+          (그냥 두면 유일한 경로에 '추천 경로와 비슷한 대안'이 붙어, 추천 경로가
+           자기 자신을 대안이라 부르는 문장이 된다.)
+    """
+    if highlights:
+        return ' · '.join(highlights)
+    return '이 구간에서 찾은 유일한 경로' if solo else '추천 경로와 비슷한 대안'
 
 
 @torch.no_grad()
@@ -159,7 +172,7 @@ def recommend(user_profile, candidate_routes, model=None, enrich=False,
         recs.append(Recommendation(
             route_id=_route_id(route, idx),
             score=round(float(scores[idx]), 4),
-            reason=_reason(marks),
+            reason=_reason(marks, solo=len(candidate_routes) == 1),
             features={a: round(v, 3) for a, v in f_dict.items()},
             highlights=marks,
         ))

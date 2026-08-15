@@ -7,17 +7,7 @@ import DepartureTimeModal from '../components/S4_Timesetting'; // 모달 컴포�
 import { getRouteRecommendation } from '../api/naviApi';
 import { readProfile } from '../utils/profileStorage';
 import { buildRecommendRequest } from '../utils/buildRecommendRequest';
-
-const TRIP_STORAGE_KEY = 'neonaviTrip';
-
-function readSavedTrip() {
-    try {
-        return JSON.parse(sessionStorage.getItem(TRIP_STORAGE_KEY) || '{}');
-    } catch (error) {
-        console.error('저장된 경로 정보를 읽지 못했습니다.', error);
-        return {};
-    }
-}
+import { readTrip, writeTrip } from '../utils/tripStorage';
 
 export default function S4_RouteResult() {
     const navigate = useNavigate();
@@ -25,7 +15,7 @@ export default function S4_RouteResult() {
 
     const tripData = useMemo(
         () => ({
-            ...readSavedTrip(),
+            ...readTrip(),
             ...(location.state || {})
         }),
         [location.state]
@@ -88,7 +78,12 @@ export default function S4_RouteResult() {
                     fee: `${route.toll.toLocaleString()}원`,
                     // 이 경로를 1순위로 고르는 다른 성향들 (없으면 빈 배열)
                     preferredBy: route.preferred_by_labels || [],
-                    path: route.path || []
+                    path: route.path || [],
+                    // 주행 화면(S5)이 쓰는 것 — 남은시간 환산에 숫자가 필요하고,
+                    // steps 는 턴바이턴 안내다. 문자열('25분')만 넘기면 S5에서 못 쓴다.
+                    durationMin: route.duration_min,
+                    distanceKm: route.distance_km,
+                    steps: route.steps || []
                 }));
 
                 setRoutes(list);
@@ -127,10 +122,7 @@ export default function S4_RouteResult() {
             preferenceAxis: preference?.axis || ''
         };
 
-        sessionStorage.setItem(
-            TRIP_STORAGE_KEY,
-            JSON.stringify(navigationData)
-        );
+        writeTrip(navigationData);
 
         navigate('/navi', {
             state: navigationData

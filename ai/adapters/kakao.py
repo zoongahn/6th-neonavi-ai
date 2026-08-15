@@ -113,13 +113,21 @@ def _call(origin, dest, priority="RECOMMEND", waypoint=None, timeout=10,
 # ── 파싱 & 중복제거 ────────────────────────────────────────────────
 
 def _parse(route: dict, rid: str) -> CandidateRoute:
-    """raw route dict → CandidateRoute."""
+    """raw route dict → CandidateRoute.
+
+    ⚠️ `guide.road_index` 는 **섹션 안에서 0부터 다시 시작한다.** 경유지를 넣어
+    부른 경로(우리 pool 확대 방식)는 섹션이 2개라, 그냥 이어붙이면 두 번째
+    섹션의 인덱스가 통째로 어긋난다. 여기서 폴리라인상 위치(`coord_index`)로
+    바꿔 두면 소비하는 쪽은 섹션 구조를 몰라도 된다.
+    """
     s = route.get("summary", {})
     coords: list[tuple[float, float]] = []
     roads: list[dict] = []
     guides: list[dict] = []
     for sec in route.get("sections", []):
+        starts: list[int] = []   # 이 섹션 road i 가 coords 어디서 시작하는지
         for road in sec.get("roads", []):
+            starts.append(len(coords))
             v = road.get("vertexes", [])
             for i in range(0, len(v) - 1, 2):
                 coords.append((v[i], v[i + 1]))
@@ -129,7 +137,12 @@ def _parse(route: dict, rid: str) -> CandidateRoute:
                 "traffic_speed": road.get("traffic_speed"),
                 "traffic_state": road.get("traffic_state"),
             })
-        guides.extend(sec.get("guides", []))
+        for g in sec.get("guides", []):
+            ri = g.get("road_index", -1)
+            guides.append({
+                **g,
+                "coord_index": starts[ri] if 0 <= ri < len(starts) else max(0, len(coords) - 1),
+            })
     return CandidateRoute(
         id=rid,
         coords=coords,
