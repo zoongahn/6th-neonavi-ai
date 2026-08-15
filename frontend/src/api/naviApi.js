@@ -69,14 +69,23 @@ export const getRouteRecommendation = async (requestData) => {
     return pendingRecommendations.get(key);
 };
 
-/* 별점 피드백 전송 (S6_Feedback) */
-export const sendFeedback = async (ratingScore) => {
+/* 주행 기록 저장 (S6_Feedback) — 서버에 남는 실사용 데이터.
+   추천 경로와 실제로 고른 경로를 함께 보내야 '추천 수용률'을 셀 수 있다. */
+export const saveTrip = async (trip) => postJson('/api/trips/', trip);
+
+/* 별점 저장 — 주행 기록 1건에 붙는다 */
+export const saveFeedback = async (tripId, { rating, comment = '' }) =>
+    postJson(`/api/trips/${tripId}/feedback/`, { rating, comment });
+
+/* 주행 기록 목록 (S7a_history). 서버가 없으면 null → 호출 측이 로컬 기록으로 대체 */
+export const fetchTrips = async () => {
     try {
-        // TODO: 백엔드 피드백 엔드포인트가 생기면 postJson 으로 교체
-        console.log(`별점 ${ratingScore}점 (백엔드 엔드포인트 준비 중)`);
-        return { success: true };
+        const response = await fetch(`${BASE_URL}/api/trips/`);
+        if (!response.ok) return null;
+        const data = await response.json();
+        return data.trips || [];
     } catch (error) {
-        console.error('피드백 전송 API 에러:', error);
-        throw error;
+        console.warn('주행 기록을 서버에서 불러오지 못했습니다.', error);
+        return null;
     }
 };

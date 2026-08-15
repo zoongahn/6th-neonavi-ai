@@ -1,7 +1,28 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { fetchTrips } from '../api/naviApi';
+
 const HISTORY_STORAGE_KEY = 'neonaviDriveHistories';
+
+const MODE_LABEL = { comfort: '편안함', sports: '스포티', eco: '경제성' };
+
+/** 서버 주행 기록 → 이 화면이 쓰는 표시 형태 */
+const fromServerTrip = (trip) => ({
+    id: `server-${trip.id}`,
+    createdAt: trip.created_at,
+    date: new Date(trip.created_at).toLocaleString('ko-KR', {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit'
+    }),
+    departure: trip.origin_name,
+    destination: trip.destination_name,
+    distance: trip.distance_km != null ? `${trip.distance_km}km` : '',
+    time: trip.duration_min != null ? `${Math.round(trip.duration_min)}분` : '',
+    mode: MODE_LABEL[trip.mode] || trip.mode || '',
+    fee: trip.toll != null ? `${trip.toll}원` : '0원',
+    rating: trip.rating || 0
+});
 
 const safeParse = (value, fallback = []) => {
     try {
@@ -60,9 +81,27 @@ const formatFee = (fee) => {
 export default function S7a() {
     const navigate = useNavigate();
 
-    const [histories] = useState(() =>
+    /*
+        먼저 로컬 기록으로 즉시 그리고, 서버 기록이 오면 그쪽으로 교체한다.
+        서버가 진실원천이지만(다른 기기·집계 반영) 꺼져 있을 수 있으므로
+        로컬을 폴백으로 남긴다.
+    */
+    const [histories, setHistories] = useState(() =>
         loadHistories()
     );
+
+    useEffect(() => {
+        let isActive = true;
+
+        fetchTrips().then((trips) => {
+            if (!isActive || trips === null) return;   // null = 서버 응답 없음
+            setHistories(trips.map(fromServerTrip));
+        });
+
+        return () => {
+            isActive = false;
+        };
+    }, []);
 
     // 실제 저장된 주행 거리 총합
     const totalDistance = histories
