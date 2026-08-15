@@ -16,10 +16,18 @@ HIGHER_BETTER = {'avg_speed', 'speed_limit', 'road_type'}   # ↑ 특성
 
 # 각 성향 축의 구성 특성 (관련 특성 만족도 평균). 계약.md §2 참조. safety 삭제(2026-07-18).
 # sports=감속회피/주행속력, comfort=완만·대로, fuel=비용최소.
+#
+# duration_min 추가(2026-08-15, 층2 설문 근거): 원래 '빠른 도착은 지도 API가 보장하니
+# 성향 축에서 뺀다'고 봤는데, 설문 48명에서 소요시간이 선택을 가르는 3대 요인이었다
+# (계수 -2.12, road_type·toll 다음). 오래 걸리는 길은 성향과 무관하게 기피되므로
+# 세 축에 모두 넣는다 — 빠른 주행(sports)·피로(comfort)·시간비용(fuel).
+# 근거·측정: docs/층2_검증결과.md
 AXIS_FEATURES = {
-    'sports':  ('avg_speed', 'speed_limit', 'road_type', 'turn_count', 'congestion', 'signal_count'),
-    'comfort': ('curvature', 'slope', 'turn_count', 'congestion', 'road_type'),
-    'fuel':    ('fuel_cost', 'distance_km', 'toll'),
+    'sports':  ('avg_speed', 'speed_limit', 'road_type', 'turn_count', 'congestion',
+                'signal_count', 'duration_min'),
+    'comfort': ('curvature', 'slope', 'turn_count', 'congestion', 'road_type',
+                'duration_min'),
+    'fuel':    ('fuel_cost', 'distance_km', 'toll', 'duration_min'),
 }
 
 # 카카오 traffic_state → 정체 심각도(높을수록 막힘). 0/None=정보없음 → 평균에서 제외.
