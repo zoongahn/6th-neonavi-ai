@@ -5,17 +5,58 @@ import TopNavBar from '../components/TopNavBar';
 import PlaceInput from '../components/PlaceInput';
 
 const TRIP_STORAGE_KEY = 'neonaviTrip';
-const RECENT_DESTINATION_KEY = 'neonaviRecentDestination';
+const RECENT_TRIP_KEY = 'neonaviRecentTrip';
+const SAVED_LOCATIONS_KEY = 'neonaviSavedLocations';
 
 /**
- * 브라우저에 저장된 최근 도착지를 불러옵니다.
+ * 최근 검색 경로 불러오기
  */
-const getRecentDestination = () => {
+const getRecentTrip = () => {
     try {
-        return localStorage.getItem(RECENT_DESTINATION_KEY) || '';
+        const savedTrip = localStorage.getItem(RECENT_TRIP_KEY);
+
+        if (!savedTrip) {
+            return null;
+        }
+
+        return JSON.parse(savedTrip);
     } catch (error) {
-        console.error('최근 도착지를 불러오지 못했습니다.', error);
-        return '';
+        console.error(
+            '최근 경로를 불러오지 못했습니다.',
+            error
+        );
+
+        return null;
+    }
+};
+
+/**
+ * 마이페이지에서 저장한 집 / 회사 불러오기
+ */
+const getSavedLocations = () => {
+    try {
+        const saved = localStorage.getItem(
+            SAVED_LOCATIONS_KEY
+        );
+
+        if (!saved) {
+            return {
+                home: null,
+                company: null
+            };
+        }
+
+        return JSON.parse(saved);
+    } catch (error) {
+        console.error(
+            '저장된 집/회사 정보를 불러오지 못했습니다.',
+            error
+        );
+
+        return {
+            home: null,
+            company: null
+        };
     }
 };
 
@@ -54,20 +95,34 @@ export default function S2_Home() {
 
     const [departure, setDeparture] = useState('');
     const [destination, setDestination] = useState('');
-    // 검색 목록에서 고른 장소({name, lng, lat}). 고르지 않으면 백엔드가 이름으로 찾는다.
-    const [departurePlace, setDeparturePlace] = useState(null);
-    const [destinationPlace, setDestinationPlace] = useState(null);
-    // 동승자·짐은 여정마다 달라지므로 프로필이 아니라 여기서 받는다.
-    const [passenger, setPassenger] = useState('혼자');
-    const [loadKg, setLoadKg] = useState(0);
-    const [errorMessage, setErrorMessage] = useState('');
 
-    // 마지막으로 검색한 도착지를 불러옴
-    const [recentDestination, setRecentDestination] =
-        useState(getRecentDestination);
+    // 검색 목록에서 선택한 실제 장소
+    const [departurePlace, setDeparturePlace] =
+        useState(null);
+
+    const [destinationPlace, setDestinationPlace] =
+        useState(null);
+
+    // 동승자 / 짐
+    const [passenger, setPassenger] =
+        useState('혼자');
+
+    const [loadKg, setLoadKg] =
+        useState(0);
+
+    const [errorMessage, setErrorMessage] =
+        useState('');
+
+    // 최근 검색 경로
+    const [recentTrip, setRecentTrip] =
+        useState(getRecentTrip);
+
+    // 저장된 집 / 회사
+    const [savedLocationData] =
+        useState(getSavedLocations);
 
     /**
-     * 출발지와 도착지를 저장하고 경로 옵션 페이지로 이동합니다.
+     * 경로 찾기
      */
     const handleFindRoute = () => {
         const trimmedDeparture = departure.trim();
@@ -77,33 +132,43 @@ export default function S2_Home() {
             setErrorMessage(
                 '출발지와 도착지를 모두 입력해주세요.'
             );
+
             return;
         }
 
         const tripData = {
             departure: trimmedDeparture,
             destination: trimmedDestination,
-            // 목록에서 고른 경우 좌표까지 넘겨 지점을 확정한다.
+
             departurePlace,
             destinationPlace,
+
             passenger,
             loadKg
         };
 
         try {
-            // 현재 경로 정보는 이번 탭에서 사용
+            // 현재 검색 경로
             sessionStorage.setItem(
                 TRIP_STORAGE_KEY,
                 JSON.stringify(tripData)
             );
 
-            // 최근 도착지는 브라우저를 다시 열어도 유지
+            // 최근 검색 경로 저장
+            const recentTripData = {
+                departure: trimmedDeparture,
+                destination: trimmedDestination,
+
+                departurePlace,
+                destinationPlace
+            };
+
             localStorage.setItem(
-                RECENT_DESTINATION_KEY,
-                trimmedDestination
+                RECENT_TRIP_KEY,
+                JSON.stringify(recentTripData)
             );
 
-            setRecentDestination(trimmedDestination);
+            setRecentTrip(recentTripData);
         } catch (error) {
             console.error(
                 '경로 정보를 저장하지 못했습니다.',
@@ -119,37 +184,111 @@ export default function S2_Home() {
     };
 
     /**
-     * 집, 회사, 최근 목적지 버튼을 눌렀을 때 입력칸에 적용합니다.
+     * 집 / 회사 / 최근 경로 버튼
      */
     const handleSavedLocation = (location) => {
-        if (location.type === 'departure') {
-            setDeparture(location.value);
+
+        // 최근 검색 경로
+        if (location.type === 'recent') {
+            setDeparture(location.departure);
+            setDestination(location.destination);
+
+            setDeparturePlace(
+                location.departurePlace || null
+            );
+
+            setDestinationPlace(
+                location.destinationPlace || null
+            );
+
+            setErrorMessage('');
+
             return;
         }
 
-        setDestination(location.value);
+        // 출발지로 사용할 저장 장소
+        if (location.type === 'departure') {
+            setDeparture(location.value);
+
+            setDeparturePlace(
+                location.place || null
+            );
+
+            setErrorMessage('');
+
+            return;
+        }
+
+        // 도착지로 사용할 저장 장소
+        if (location.type === 'destination') {
+            setDestination(location.value);
+
+            setDestinationPlace(
+                location.place || null
+            );
+
+            setErrorMessage('');
+        }
     };
 
+    /**
+     * 홈에 표시할 버튼
+     *
+     * 집 / 회사는 마이페이지에서 설정한 경우에만 표시
+     */
     const savedLocations = [
-        {
-            id: 'home',
-            label: '집',
-            value: '집',
-            type: 'departure'
-        },
-        {
-            id: 'company',
-            label: '회사',
-            value: '회사',
-            type: 'destination'
-        },
-        ...(recentDestination
+
+        ...(savedLocationData.home
+            ? [
+                  {
+                      id: 'home',
+                      label: '🏠 집',
+                      value:
+                          savedLocationData.home.name,
+                      place:
+                          savedLocationData.home,
+                      type: 'destination'
+                  }
+              ]
+            : []),
+
+        ...(savedLocationData.company
+            ? [
+                  {
+                      id: 'company',
+                      label: '🏢 회사',
+                      value:
+                          savedLocationData.company.name,
+                      place:
+                          savedLocationData.company,
+                      type: 'destination'
+                  }
+              ]
+            : []),
+
+        ...(recentTrip?.departure &&
+        recentTrip?.destination
             ? [
                   {
                       id: 'recent',
-                      label: `최근: ${recentDestination}`,
-                      value: recentDestination,
-                      type: 'destination'
+
+                      label:
+                          `최근: ${recentTrip.departure}` +
+                          ` → ${recentTrip.destination}`,
+
+                      departure:
+                          recentTrip.departure,
+
+                      destination:
+                          recentTrip.destination,
+
+                      departurePlace:
+                          recentTrip.departurePlace,
+
+                      destinationPlace:
+                          recentTrip.destinationPlace,
+
+                      type: 'recent'
                   }
               ]
             : [])
@@ -157,15 +296,13 @@ export default function S2_Home() {
 
     return (
         <>
-            {/*
-                방문 기록과 관계없이 홈 화면의 뒤로가기는
-                항상 시작 페이지로 이동합니다.
-            */}
             <TopNavBar backTo="/" />
 
             <div
                 className="page-content"
-                style={{ paddingBottom: '80px' }}
+                style={{
+                    paddingBottom: '80px'
+                }}
             >
                 <Header />
 
@@ -181,7 +318,7 @@ export default function S2_Home() {
                     </p>
                 </div>
 
-                {/* 출발지 — 검색 후 목록에서 선택하면 좌표까지 확정된다 */}
+                {/* 출발지 */}
                 <div className="mb-3">
                     <PlaceInput
                         icon="📍"
@@ -189,9 +326,22 @@ export default function S2_Home() {
                         text={departure}
                         onTextChange={(value) => {
                             setDeparture(value);
+
+                            // 직접 글자를 수정했다면
+                            // 기존 좌표 선택값 제거
+                            if (
+                                value !==
+                                departurePlace?.name
+                            ) {
+                                setDeparturePlace(null);
+                            }
+
                             setErrorMessage('');
                         }}
-                        onSelect={setDeparturePlace}
+                        onSelect={(place) => {
+                            setDeparturePlace(place);
+                            setErrorMessage('');
+                        }}
                     />
                 </div>
 
@@ -203,27 +353,46 @@ export default function S2_Home() {
                         text={destination}
                         onTextChange={(value) => {
                             setDestination(value);
+
+                            if (
+                                value !==
+                                destinationPlace?.name
+                            ) {
+                                setDestinationPlace(null);
+                            }
+
                             setErrorMessage('');
                         }}
-                        onSelect={setDestinationPlace}
+                        onSelect={(place) => {
+                            setDestinationPlace(place);
+                            setErrorMessage('');
+                        }}
                     />
                 </div>
 
-                {/* 저장 장소 및 최근 목적지 */}
-                <div className="saved-locations-row">
-                    {savedLocations.map((location) => (
-                        <button
-                            key={location.id}
-                            type="button"
-                            className="location-tag"
-                            onClick={() =>
-                                handleSavedLocation(location)
-                            }
-                        >
-                            {location.label}
-                        </button>
-                    ))}
-                </div>
+                {/* 저장 장소 / 최근 경로 */}
+                {savedLocations.length > 0 && (
+                    <div className="saved-locations-row">
+                        {savedLocations.map(
+                            (location) => (
+                                <button
+                                    key={
+                                        location.id
+                                    }
+                                    type="button"
+                                    className="location-tag"
+                                    onClick={() =>
+                                        handleSavedLocation(
+                                            location
+                                        )
+                                    }
+                                >
+                                    {location.label}
+                                </button>
+                            )
+                        )}
+                    </div>
+                )}
 
                 {/* 동승자 선택 */}
                 <div className="mt-8 mb-4 px-1">
@@ -252,7 +421,8 @@ export default function S2_Home() {
                                     font-bold
                                     transition
                                     ${
-                                        passenger === item
+                                        passenger ===
+                                        item
                                             ? 'bg-indigo-600 text-white shadow-md'
                                             : 'border border-gray-200 text-gray-600 bg-white'
                                     }
@@ -264,10 +434,11 @@ export default function S2_Home() {
                     </div>
                 </div>
 
-                {/* 짐 정도 선택 */}
+                {/* 짐 정도 */}
                 <div className="mt-6 mb-4 px-1">
                     <label className="block text-sm font-bold text-gray-700 mb-3">
                         짐은 얼마나 싣나요?
+
                         <span className="text-indigo-600 ml-2">
                             {loadKg} kg
                         </span>
@@ -275,14 +446,27 @@ export default function S2_Home() {
 
                     <div className="flex gap-2">
                         {[
-                            { label: '거의 없음', value: 0 },
-                            { label: '보통', value: 30 },
-                            { label: '많음', value: 70 }
+                            {
+                                label: '거의 없음',
+                                value: 0
+                            },
+                            {
+                                label: '보통',
+                                value: 30
+                            },
+                            {
+                                label: '많음',
+                                value: 70
+                            }
                         ].map((item) => (
                             <button
                                 key={item.value}
                                 type="button"
-                                onClick={() => setLoadKg(item.value)}
+                                onClick={() =>
+                                    setLoadKg(
+                                        item.value
+                                    )
+                                }
                                 className={`
                                     flex-1
                                     py-3
@@ -291,7 +475,8 @@ export default function S2_Home() {
                                     font-bold
                                     transition
                                     ${
-                                        loadKg === item.value
+                                        loadKg ===
+                                        item.value
                                             ? 'bg-indigo-600 text-white shadow-md'
                                             : 'border border-gray-200 text-gray-600 bg-white'
                                     }
@@ -303,7 +488,7 @@ export default function S2_Home() {
                     </div>
                 </div>
 
-                {/* 입력 오류 안내 */}
+                {/* 오류 메시지 */}
                 {errorMessage && (
                     <p className="mt-3 px-1 text-sm font-semibold text-red-500">
                         {errorMessage}
