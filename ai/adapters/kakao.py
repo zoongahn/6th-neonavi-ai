@@ -64,13 +64,17 @@ def _fmt(p) -> str:
 # ── 호출 ───────────────────────────────────────────────────────────
 
 def _call(origin, dest, priority="RECOMMEND", waypoint=None, timeout=10,
-          departure_time=None) -> list[dict]:
+          departure_time=None, errors=None) -> list[dict]:
     """카카오 1회 호출 → result_code==0 인 raw route dict 리스트.
 
     departure_time(YYYYMMDDHHMM)을 주면 미래 운행 정보 엔드포인트로 보낸다.
     ⚠️ 과거 시각이면 카카오가 **에러 없이 현재 기준으로 답한다**. 기능이 도는 것처럼
     보이면서 결과만 틀리므로, 미래인지 확인한 값만 넘길 것
     (backend apps/routes/services.parse_departure_time 이 담당).
+
+    errors: 리스트를 주면 실패 사유 (result_code, result_msg) 를 담아준다.
+    실패를 조용히 버리면 호출자가 '경로 없음' 말고는 아무것도 말해줄 수 없다.
+    예: 산 정상을 출발지로 찍으면 102 '시작 지점 주변의 도로를 탐색할 수 없음'.
     """
     params = {
         "origin": _fmt(origin),
@@ -87,11 +91,23 @@ def _call(origin, dest, priority="RECOMMEND", waypoint=None, timeout=10,
         params["departure_time"] = departure_time
     try:
         resp = requests.get(url, headers=_headers(), params=params, timeout=timeout)
-    except requests.RequestException:
+    except requests.RequestException as exc:
+        if errors is not None:
+            errors.append((None, f"길찾기 서버에 연결하지 못했습니다: {exc}"))
         return []
     if resp.status_code != 200:
+        if errors is not None:
+            errors.append((resp.status_code, f"길찾기 응답 오류 (HTTP {resp.status_code})"))
         return []
-    return [r for r in resp.json().get("routes", []) if r.get("result_code") == 0]
+
+    ok = []
+    for r in resp.json().get("routes", []):
+        code = r.get("result_code")
+        if code == 0:
+            ok.append(r)
+        elif errors is not None:
+            errors.append((code, r.get("result_msg", "")))
+    return ok
 
 
 # ── 파싱 & 중복제거 ────────────────────────────────────────────────
@@ -148,6 +164,7 @@ def fetch_pool(
     serve_detour: float = 1.5,
     serve_top: int = 5,
     departure_time=None,
+    errors=None,
 ) -> list[CandidateRoute]:
     """O-D → 중복 제거된 후보 경로 리스트.
 
@@ -155,6 +172,7 @@ def fetch_pool(
     mode='serve'   : best 시간의 serve_detour 배 이내, 시간 오름차순 top serve_top (서빙).
 
     departure_time : YYYYMMDDHHMM (미래). 주면 그 시각 기준 예상 소요시간으로 받는다.
+    errors         : 리스트를 주면 카카오가 돌려준 실패 사유를 담아준다(빈 결과 설명용).
 
     호출 수 = len(priorities) + len(fracs)*len(mags)*2 (경유지 ±).
     기본값 = 2 + 3*1*2 = 8회/O-D.
@@ -164,7 +182,8 @@ def fetch_pool(
 
     raw: list[dict] = []
     for p in priorities:
-        raw += _call((ox, oy), (dx, dy), priority=p, departure_time=departure_time)
+        raw += _call((ox, oy), (dx, dy), priority=p, departure_time=departure_time,
+                     errors=errors)
 
     # O-D 직선의 수직 단위벡터로 경유지 교란
     vx, vy = dx - ox, dy - oy
