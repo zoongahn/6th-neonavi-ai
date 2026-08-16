@@ -7,7 +7,7 @@ import { readProfile } from '../utils/profileStorage';
 import { buildRecommendRequest } from '../utils/buildRecommendRequest';
 import { readTrip, writeTrip } from '../utils/tripStorage';
 import useDrivePosition from '../hooks/useDrivePosition';
-import { cumulative, formatDistance, snapToPath } from '../utils/geo';
+import { cumulative, formatDistance, haversine, snapToPath } from '../utils/geo';
 import { currentStep, prepareSteps } from '../utils/navSteps';
 
 /** 추론된 성향 축 → 버튼에 쓰는 모드 이름 */
@@ -75,13 +75,37 @@ export default function S5_Navigation() {
         setSnapped(hit);
     }, [position, path, cum]);
 
+    /*
+        아직 경로에 올라타지 않은 상태(= 출발 전).
+
+        snapToPath 는 아무리 멀리 있어도 "경로 위 가장 가까운 점"을 찾아준다.
+        그래서 다른 동네에서 안내를 켜면 현위치가 경로 중간에 붙어 버린다.
+        (가산동에서 강남역→광화문을 켜면 12.5km 떨어져 있는데도 경로의 42%
+         지점에 붙어 "5.4km 왔고 6.0km 남음"이라고 표시됐다.)
+
+        한 번이라도 경로 위에 올라온 적이 있는지로 구분한다.
+          올라온 적 없음 + 지금 벗어남  → 출발 전(진행도를 0으로 두고 미리보기)
+          올라온 적 있음 + 지금 벗어남  → 주행 중 경로 이탈
+        모의 주행은 경로 위에서 시작하므로 곧바로 주행 중이 된다.
+    */
+    const [hasStarted, setHasStarted] = useState(false);
+    useEffect(() => {
+        if (snapped && snapped.offsetM <= OFF_ROUTE_M) setHasStarted(true);
+    }, [snapped]);
+
     // 경로가 바뀌면(모드 전환) 진행 상태를 처음으로
     useEffect(() => {
         snapHintRef.current = 0;
         setSnapped(null);
+        setHasStarted(false);
     }, [path]);
 
-    const distAlong = snapped ? snapped.distAlong : 0;
+    const onRoute = hasStarted && snapped;
+    const distanceToStart = useMemo(
+        () => (position && path.length ? haversine(position, path[0]) : null),
+        [position, path]
+    );
+    const distAlong = onRoute ? snapped.distAlong : 0;
     const remainM = Math.max(0, totalM - distAlong);
     const step = useMemo(() => currentStep(steps, distAlong), [steps, distAlong]);
 
@@ -101,7 +125,7 @@ export default function S5_Navigation() {
     const [isOffRoute, setIsOffRoute] = useState(false);
     const offSinceRef = useRef(0);
     useEffect(() => {
-        if (!snapped) return;
+        if (!snapped || !hasStarted) return;   // 출발 전은 이탈이 아니다
         if (snapped.offsetM > OFF_ROUTE_M) {
             if (!offSinceRef.current) offSinceRef.current = Date.now();
             else if (Date.now() - offSinceRef.current > OFF_ROUTE_MS) setIsOffRoute(true);
@@ -109,7 +133,7 @@ export default function S5_Navigation() {
             offSinceRef.current = 0;
             setIsOffRoute(false);
         }
-    }, [snapped]);
+    }, [snapped, hasStarted]);
 
     // ── 화면 꺼짐 방지 ────────────────────────────────────────
     // 화면이 꺼지면 watchPosition 도 멈춘다(브라우저 정책). 주행 화면에선 필수.
@@ -166,8 +190,10 @@ export default function S5_Navigation() {
     );
 
     useEffect(() => {
-        if (snapped && totalM > 0 && remainM < ARRIVAL_M) finish(true);
-    }, [snapped, totalM, remainM, finish]);
+        // 출발 전에는 도착 판정을 하지 않는다. 목적지 근처 동네에서 안내를 켜면
+        // 현위치가 경로 끝에 붙어 곧바로 /feedback 으로 튕길 수 있다.
+        if (onRoute && totalM > 0 && remainM < ARRIVAL_M) finish(true);
+    }, [onRoute, totalM, remainM, finish]);
 
     /** 모드를 바꾸면 그 기준으로 실제 재탐색한다(예전엔 로그만 찍었다). */
     const handleModeChange = async (newMode) => {
@@ -231,9 +257,11 @@ export default function S5_Navigation() {
                 {hasPath ? (
                     <NavMap
                         path={path}
-                        position={snapped ? { lng: snapped.lng, lat: snapped.lat } : null}
+                        // 출발 전이면 경로에 붙이지 않는다. 엉뚱한 지점에 마커를
+                        // 찍느니 경로 전체를 보여주는 미리보기가 정직하다.
+                        position={onRoute ? { lng: snapped.lng, lat: snapped.lat } : null}
                         heading={heading}
-                        follow={follow}
+                        follow={follow && Boolean(onRoute)}
                         onFollowBreak={handleFollowBreak}
                     />
                 ) : (
@@ -252,20 +280,37 @@ export default function S5_Navigation() {
             <div className="absolute top-4 left-4 right-4 z-10">
                 <div className="bg-indigo-600 text-white rounded-2xl p-5 shadow-2xl flex items-center gap-4">
                     <div className="text-5xl leading-none flex-none w-14 text-center">
-                        {step ? step.icon : '🏁'}
+                        {onRoute ? (step ? step.icon : '🏁') : '📍'}
                     </div>
                     <div className="flex-1 min-w-0">
-                        <div className="text-3xl font-extrabold mb-1">
-                            {step ? formatDistance(step.remainM) : formatDistance(remainM)}
-                        </div>
-                        <div className="text-lg font-medium opacity-90 break-words">
-                            {step ? step.guidance : `${destination} 도착`}
-                        </div>
+                        {onRoute ? (
+                            <>
+                                <div className="text-3xl font-extrabold mb-1">
+                                    {step ? formatDistance(step.remainM) : formatDistance(remainM)}
+                                </div>
+                                <div className="text-lg font-medium opacity-90 break-words">
+                                    {step ? step.guidance : `${destination} 도착`}
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="text-2xl font-extrabold mb-1">출발 대기 중</div>
+                                <div className="text-sm font-medium opacity-90 break-words">
+                                    {navigationData.departure || '출발지'}에서 안내가 시작됩니다
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
 
-                {(notice || isOffRoute) && (
+                {(notice || isOffRoute || !onRoute) && (
                     <div className="mt-2 flex flex-col gap-1 items-start">
+                        {!onRoute && distanceToStart !== null && (
+                            <span className="bg-white/95 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-full shadow">
+                                출발지에서 <b>{formatDistance(distanceToStart)}</b> 떨어져 있습니다 ·
+                                {' '}지금 보이는 건 경로 미리보기입니다
+                            </span>
+                        )}
                         {isOffRoute && (
                             <span className="bg-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow">
                                 경로를 벗어났습니다 · 재탐색은 하지 않습니다
@@ -364,14 +409,14 @@ export default function S5_Navigation() {
                 <div className="flex justify-between items-end gap-3 mb-4">
                     <div className="min-w-0">
                         <div className="text-3xl font-extrabold text-gray-900">
-                            {snapped ? `${arrivalText} 도착` : selectedRoute.arrivalTime || '—'}
+                            {onRoute ? `${arrivalText} 도착` : selectedRoute.arrivalTime || '—'}
                         </div>
                         <div className="text-gray-500 font-medium mt-1">
                             <span className="text-indigo-600 font-bold">
-                                {snapped ? `${Math.max(1, Math.round(remainMin))}분` : selectedRoute.time || '—'}
+                                {onRoute ? `${Math.max(1, Math.round(remainMin))}분` : selectedRoute.time || '—'}
                             </span>
-                            {' 남음 · '}
-                            {snapped ? formatDistance(remainM) : selectedRoute.distance || '—'}
+                            {onRoute ? ' 남음 · ' : ' · '}
+                            {onRoute ? formatDistance(remainM) : selectedRoute.distance || '—'}
                         </div>
                     </div>
 
