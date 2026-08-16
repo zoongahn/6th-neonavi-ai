@@ -175,6 +175,8 @@ def fetch_pool(
     waypoint_mags=(0.012,),
     dedupe_threshold: float = 0.65,
     serve_detour: float = 1.3,
+    serve_max_detour: float = 1.6,   # 최소 후보 수를 못 채울 때까지만 풀어 주는 절대 상한
+    serve_min: int = 3,              # 이보다 적으면 개인화가 성립하지 않는다
     serve_top: int = 5,
     departure_time=None,
     errors=None,
@@ -232,10 +234,22 @@ def fetch_pool(
         # 흔들려서(같은 경로가 24.6→25.4분), 그걸로 경계를 자르면 5·6위가 매 요청
         # 뒤바뀐다. 후보 하나만 들락거려도 상대 정규화 때문에 전원 점수가 다시
         # 계산돼 추천이 뒤집힌다. 거리는 같은 경로면 안 변한다.
+        #
+        # ⚠️ 상한을 고정으로 걸면 도로망이 성긴 구간에서 후보가 통째로 날아간다.
+        #    의정부역→여의도역(30km)의 우회율 분포가
+        #      [1.0, 1.35, 1.37, 1.37, 1.4, 1.41, 1.55, 1.61, 1.7]
+        #    라서 1.3 상한이면 **후보가 1개만 남는다** = 개인화가 0이 된다.
+        #    그래서 최소 후보 수를 못 채우면 절대 상한(serve_max_detour)까지
+        #    단계적으로 풀어 준다. 터무니없는 우회는 막되, 그것 때문에 선택지
+        #    자체가 사라지는 건 더 나쁘다.
         best = min(cr.distance_km for cr in distinct)
-        distinct = [cr for cr in distinct if cr.distance_km <= best * serve_detour]
-        distinct.sort(key=lambda cr: cr.distance_km)
-        distinct = distinct[:serve_top]
+        kept = []
+        for cap in (serve_detour, 1.4, 1.5, serve_max_detour):
+            kept = [cr for cr in distinct if cr.distance_km <= best * cap]
+            if len(kept) >= serve_min or cap >= serve_max_detour:
+                break
+        kept.sort(key=lambda cr: cr.distance_km)
+        distinct = kept[:serve_top]
 
     return distinct
 

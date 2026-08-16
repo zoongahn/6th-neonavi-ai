@@ -33,6 +33,8 @@ MODES = ('sports', 'comfort', 'eco')
 # ⚠️ kakao.py 의 serve 필터를 바꾸면 여기도 같이 바꿔야 한다. 안 그러면 이 진단이
 #    "우리가 실제로 서빙하는 후보집합"을 더는 재현하지 못한다.
 SERVE_DETOUR = 1.3
+SERVE_MAX_DETOUR = 1.6
+SERVE_MIN = 3
 SERVE_TOP = 5
 SERVE_KEY = 'distance_km'   # 소요시간은 교통으로 흔들려 경계가 매 요청 뒤바뀐다
 
@@ -53,8 +55,13 @@ def load_candidate_sets(routes_path=None, min_candidates=3,
     sets = []
     for od in sorted(groups):
         cands = groups[od]
+        # kakao.fetch_pool(mode='serve') 과 동일: 최소 후보 수를 못 채우면 단계적 완화
         best = min(c[key] for c in cands)
-        kept = [c for c in cands if c[key] <= best * detour]
+        kept = []
+        for cap in (detour, 1.4, 1.5, SERVE_MAX_DETOUR):
+            kept = [c for c in cands if c[key] <= best * cap]
+            if len(kept) >= SERVE_MIN or cap >= SERVE_MAX_DETOUR:
+                break
         kept.sort(key=lambda c: c[key])
         kept = kept[:SERVE_TOP]
         if len(kept) >= min_candidates:
