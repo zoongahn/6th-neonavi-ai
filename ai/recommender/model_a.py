@@ -44,15 +44,21 @@ def _route_id(route, idx):
     return rid if rid is not None else f'route_{idx}'
 
 
-# 사실 근거로 쓸 특성 — (키, 라벨, 낮을수록 좋은가, 포맷터)
+# 사실 근거로 쓸 특성 — (키, 라벨, 낮을수록 좋은가, 포맷터, 의미 있는 최소 격차)
+#
+# ⚠️ 최소 격차가 없으면 **잡음이 근거로 승격된다.** 평균 속력 23.4 vs 23.0km/h 인
+#    경로에 "평균 속력 가장 높음"이 붙었는데, 그 경로는 1등 경로보다 8분 느리고
+#    3.3km 길었다. 1등이라는 사실은 맞지만 사용자에게는 아무 의미가 없다.
 _FACT_SPECS = (
-    ('duration_min', '가장 빠름', True, lambda v: f'{round(v)}분'),
-    ('distance_km', '가장 짧음', True, lambda v: f'{v:.1f}km'),
-    ('toll', '통행료 최저', True, lambda v: f'{int(v):,}원'),
-    ('signal_count', '신호 가장 적음', True, lambda v: f'{int(v)}개'),
-    ('curvature', '가장 매끄러움', True, lambda v: ''),
-    ('avg_speed', '평균 속력 가장 높음', False, lambda v: f'{v:.0f}km/h'),
+    ('duration_min', '가장 빠름', True, lambda v: f'{round(v)}분', 1.0),      # 1분
+    ('distance_km', '가장 짧음', True, lambda v: f'{v:.1f}km', 0.5),          # 500m
+    ('toll', '통행료 최저', True, lambda v: f'{int(v):,}원', 500.0),          # 500원
+    ('signal_count', '신호 가장 적음', True, lambda v: f'{int(v)}개', 2.0),   # 2개
+    ('curvature', '가장 매끄러움', True, lambda v: '', 0.0),                  # 아래 상대 기준
+    ('avg_speed', '평균 속력 가장 높음', False, lambda v: f'{v:.0f}km/h', 3.0),  # 3km/h
 )
+# 절대 단위를 정하기 어려운 특성은 2등 대비 상대 격차로 본다
+_RELATIVE_MIN_GAP = {'curvature': 0.10}
 _MAX_HIGHLIGHTS = 2
 
 
@@ -70,7 +76,7 @@ def _highlights(idx: int, feats: list) -> list:
         return []
 
     out = []
-    for key, label, lower_better, fmt in _FACT_SPECS:
+    for key, label, lower_better, fmt, min_gap in _FACT_SPECS:
         vals = [f.get(key) for f in feats]
         if any(v is None for v in vals):
             continue
@@ -80,6 +86,11 @@ def _highlights(idx: int, feats: list) -> list:
             continue                      # 1등이 아니거나 동률이면 변별력이 없다
         runner = sorted(vals, reverse=not lower_better)[1]
         gap = abs(runner - mine)
+        # 1등이어도 격차가 무의미하면 근거로 쓰지 않는다(잡음을 근거로 포장하지 않기)
+        rel = _RELATIVE_MIN_GAP.get(key)
+        floor = abs(runner) * rel if rel is not None else min_gap
+        if gap < floor:
+            continue
         detail = fmt(mine)
         if key == 'toll' and mine == 0:
             out.append(f'통행료 없음 ({int(gap):,}원 절약)')
@@ -127,16 +138,59 @@ def _tradeoff(idx: int, ref: int, feats: list) -> list:
     return [x for x in (better, worse) if x]
 
 
-def _reason(highlights: list, solo: bool = False) -> str:
+# 사용자가 실제로 치르는 비용. 이 셋이 전부 나쁘면 "성향에 맞다"고 말할 수 없다.
+_COST_KEYS = ('duration_min', 'distance_km', 'toll')
+
+
+def _is_dominated(idx: int, feats: list) -> bool:
+    """다른 후보가 시간·거리·통행료를 **모두** 같거나 더 잘 내는가."""
+    mine = feats[idx]
+    for j, other in enumerate(feats):
+        if j == idx:
+            continue
+        vals = [(other.get(k), mine.get(k)) for k in _COST_KEYS]
+        if any(o is None or v is None for o, v in vals):
+            continue
+        if all(o <= v for o, v in vals) and any(o < v for o, v in vals):
+            return True
+    return False
+
+
+def _pick_top(scores, feats: list) -> int:
+    """1순위를 고른다 — 단, **파레토 지배당하는 경로는 1순위가 될 수 없다.**
+
+    점수만 보면 지배당한 경로가 1등이 되는 일이 실제로 일어난다(546건 중 25건,
+    최악 +6분/+4.6km). 원인은 sports 축이 보상하는 `avg_speed` 가 **거리를 늘려서
+    올릴 수 있는 값**이라는 데 있다 — 고속 구간으로 크게 돌면 총 시간·거리는
+    나빠지는데 평균 속력은 올라간다. 그래서 "의도적으로 돌아가는 길"이 1등이 된다.
+
+    축 정의를 고치려면 재학습이 필요하므로(검증 수치가 전부 무효가 된다) 여기서는
+    서빙 단계 가드레일로 막는다. 시간·거리·통행료가 모두 남만 못한 경로를 1순위로
+    내놓는 건 어떤 성향으로도 설명할 수 없다 — 실제로 그런 경로엔 근거 문구조차
+    만들어지지 않는다.
+    """
+    order = sorted(range(len(feats)), key=lambda i: float(scores[i]), reverse=True)
+    for i in order:
+        if not _is_dominated(i, feats):
+            return i
+    return order[0]   # 전부 지배당하는 일은 없지만(지배는 비순환) 방어적으로
+
+
+def _reason(highlights: list, solo: bool = False, is_top: bool = False) -> str:
     """근거 조각 → 한 줄 문장. 내세울 게 없으면 솔직히 그렇게 쓴다.
 
-    solo: 후보가 하나뿐인 경우. 비교 상대가 없으니 강점도 대안도 말할 수 없다.
-          (그냥 두면 유일한 경로에 '추천 경로와 비슷한 대안'이 붙어, 추천 경로가
-           자기 자신을 대안이라 부르는 문장이 된다.)
+    solo:   후보가 하나뿐. 비교 상대가 없으니 강점도 대안도 말할 수 없다.
+    is_top: 1순위. 어느 항목에서도 단독 1등은 아니지만 축을 종합하면 가장 높다.
+            (둘 다 처리하지 않으면 1순위나 유일 경로에 '추천 경로와 비슷한 대안'이
+             붙어, 추천 경로가 자기 자신을 대안이라 부르는 문장이 된다.)
     """
     if highlights:
         return ' · '.join(highlights)
-    return '이 구간에서 찾은 유일한 경로' if solo else '추천 경로와 비슷한 대안'
+    if solo:
+        return '이 구간에서 찾은 유일한 경로'
+    if is_top:
+        return '성향을 종합하면 가장 잘 맞는 경로'
+    return '추천 경로와 비슷한 대안'
 
 
 @torch.no_grad()
@@ -163,7 +217,7 @@ def recommend(user_profile, candidate_routes, model=None, enrich=False,
          if weights else m.weights(user_x)[0])     # (3,)
     f = m.satisfaction(route_x)                    # (N, 4)
     scores = (f * w).sum(dim=-1)                   # (N,)
-    top = int(torch.argmax(scores))                # 대안 설명의 기준점
+    top = _pick_top(scores, feats)                 # 대안 설명의 기준점
 
     recs = []
     for idx, route in enumerate(candidate_routes):
@@ -172,11 +226,14 @@ def recommend(user_profile, candidate_routes, model=None, enrich=False,
         recs.append(Recommendation(
             route_id=_route_id(route, idx),
             score=round(float(scores[idx]), 4),
-            reason=_reason(marks, solo=len(candidate_routes) == 1),
+            reason=_reason(marks, solo=len(candidate_routes) == 1, is_top=idx == top),
             features={a: round(v, 3) for a, v in f_dict.items()},
             highlights=marks,
         ))
-    recs.sort(key=lambda r: r.score, reverse=True)
+    # 점수 내림차순. 단 가드레일이 고른 1순위(top)는 맨 앞에 둔다 — 점수만으로
+    # 정렬하면 지배당한 경로가 다시 1번 자리로 올라온다.
+    top_id = _route_id(candidate_routes[top], top)
+    recs.sort(key=lambda r: (r.route_id != top_id, -r.score))
     return recs
 
 
