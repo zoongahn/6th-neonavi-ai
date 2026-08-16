@@ -11,8 +11,17 @@ const OTHER_COLOR = '#9ca3af';      // 나머지 경로 (gray-400)
  * @param {Array}  routes     [{ routeId, path:[{lng,lat}], ... }]
  * @param {number} selectedId 선택된 경로의 인덱스
  * @param {func}   onSelect   경로 선을 클릭했을 때
+ * @param {object} padding    화면을 경로에 맞출 때 비워 둘 여백(px).
+ *                            지도 위에 떠 있는 UI(상단 카드·하단 경로목록) 높이를
+ *                            넣어 준다. 안 주면 지도는 컨테이너 전체에 맞추는데,
+ *                            실제로는 위아래가 가려져 출발·도착점이 UI 뒤로 숨는다.
  */
-export default function RouteMap({ routes = [], selectedId = 0, onSelect }) {
+export default function RouteMap({
+    routes = [],
+    selectedId = 0,
+    onSelect,
+    padding = { top: 40, right: 40, bottom: 40, left: 40 },
+}) {
     const containerRef = useRef(null);
     const mapRef = useRef(null);
     const polylinesRef = useRef([]);
@@ -96,9 +105,9 @@ export default function RouteMap({ routes = [], selectedId = 0, onSelect }) {
         });
 
         if (!bounds.isEmpty()) {
-            map.setBounds(bounds, 40, 40, 40, 40);
+            map.setBounds(bounds, padding.top, padding.right, padding.bottom, padding.left);
         }
-    }, [isMapReady, routes, selectedId, onSelect]);
+    }, [isMapReady, routes, selectedId, onSelect, padding]);
 
     if (errorMessage) {
         return (

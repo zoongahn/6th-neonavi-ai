@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import TopNavBar from '../components/TopNavBar';
@@ -30,6 +30,33 @@ export default function S4_RouteResult() {
     const [errorMessage, setErrorMessage] = useState('');
     // 성향은 사용자당 하나라 경로마다 반복하지 않고 목록 위에 한 번만 보여준다.
     const [preference, setPreference] = useState(null);
+
+    /*
+        지도는 컨테이너 전체에 경로를 맞추는데, 실제로는 위(탐색 경로 카드)와
+        아래(경로 목록)가 지도를 덮고 있다. 그래서 그냥 맞추면 출발·도착점이
+        UI 뒤로 숨는다. 덮는 높이를 실제로 재서 여백으로 넘긴다
+        (숫자를 박아 두면 카드 내용이 길어질 때마다 다시 어긋난다).
+    */
+    const topOverlayRef = useRef(null);
+    const bottomOverlayRef = useRef(null);
+    const [mapPadding, setMapPadding] = useState({ top: 40, right: 32, bottom: 40, left: 32 });
+
+    useEffect(() => {
+        const measure = () => {
+            const top = topOverlayRef.current?.getBoundingClientRect().height ?? 0;
+            const bottom = bottomOverlayRef.current?.getBoundingClientRect().height ?? 0;
+            setMapPadding((prev) => {
+                // 상단 카드는 지도 시작선(56px)보다 16px 아래에서 시작한다
+                const next = { top: Math.round(top) + 32, right: 32, bottom: Math.round(bottom) + 16, left: 32 };
+                return prev.top === next.top && prev.bottom === next.bottom ? prev : next;
+            });
+        };
+        measure();
+
+        const observer = new ResizeObserver(measure);
+        [topOverlayRef.current, bottomOverlayRef.current].forEach((el) => el && observer.observe(el));
+        return () => observer.disconnect();
+    }, [routes, preference, isLoading]);
 
     // 💡 모달 상태 및 설정된 시간 상태 추가
     const [isTimeModalOpen, setIsTimeModalOpen] = useState(false);
@@ -135,12 +162,16 @@ export default function S4_RouteResult() {
                 <TopNavBar title="경로 탐색 결과" />
             </div>
 
-            <div className="absolute inset-0 top-[56px] w-full h-full bg-gray-200 z-0">
+            {/* h-full 을 빼야 한다. top-[56px] 과 함께 쓰면 height 가 이기고 bottom:0 이
+                무시돼서 지도가 화면보다 56px 아래로 삐져나간다 → 지도는 자기 높이를
+                실제 보이는 것보다 크게 알고 화면을 맞춘다(경로 아래쪽이 잘린다). */}
+            <div className="absolute inset-0 top-[56px] w-full bg-gray-200 z-0">
                 {routes.length > 0 ? (
                     <RouteMap
                         routes={routes}
                         selectedId={selectedRouteId ?? 0}
                         onSelect={setSelectedRouteId}
+                        padding={mapPadding}
                     />
                 ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center opacity-40">
@@ -152,7 +183,7 @@ export default function S4_RouteResult() {
                 )}
             </div>
 
-            <div className="absolute top-[72px] left-4 right-4 z-30 space-y-2">
+            <div ref={topOverlayRef} className="absolute top-[72px] left-4 right-4 z-30 space-y-2">
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-4 py-3">
                     <p className="text-xs text-gray-500 mb-1">탐색 경로</p>
                     <p className="font-bold text-gray-900 break-words">
@@ -191,7 +222,7 @@ export default function S4_RouteResult() {
                 </div>
             </div>
 
-            <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-white via-white/95 to-transparent pt-8 pb-8">
+            <div ref={bottomOverlayRef} className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-white via-white/95 to-transparent pt-8 pb-8">
                 {isLoading && (
                     <div className="px-4 pb-4">
                         <div className="bg-white rounded-2xl border border-gray-200 px-4 py-6 text-center">
