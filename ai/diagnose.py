@@ -30,12 +30,18 @@ _DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 MODES = ('sports', 'comfort', 'eco')
 
 # 서빙과 동일한 후보 선별(kakao.fetch_pool mode='serve')
-SERVE_DETOUR = 1.5
+# ⚠️ kakao.py 의 serve 필터를 바꾸면 여기도 같이 바꿔야 한다. 안 그러면 이 진단이
+#    "우리가 실제로 서빙하는 후보집합"을 더는 재현하지 못한다.
+SERVE_DETOUR = 1.3
 SERVE_TOP = 5
+SERVE_KEY = 'distance_km'   # 소요시간은 교통으로 흔들려 경계가 매 요청 뒤바뀐다
 
 
-def load_candidate_sets(routes_path=None, min_candidates=3) -> list:
+def load_candidate_sets(routes_path=None, min_candidates=3,
+                        detour=None, key=None) -> list:
     """routes.parquet → O-D별 serve 후보 리스트. 서빙 입력 분포를 그대로 재현한다."""
+    detour = SERVE_DETOUR if detour is None else detour
+    key = SERVE_KEY if key is None else key
     routes_path = routes_path or os.path.join(_DATA_DIR, 'routes.parquet')
     groups = collections.defaultdict(list)
     for row in pq.read_table(routes_path).to_pylist():
@@ -47,9 +53,9 @@ def load_candidate_sets(routes_path=None, min_candidates=3) -> list:
     sets = []
     for od in sorted(groups):
         cands = groups[od]
-        best = min(c['duration_min'] for c in cands)
-        kept = [c for c in cands if c['duration_min'] <= best * SERVE_DETOUR]
-        kept.sort(key=lambda c: c['duration_min'])
+        best = min(c[key] for c in cands)
+        kept = [c for c in cands if c[key] <= best * detour]
+        kept.sort(key=lambda c: c[key])
         kept = kept[:SERVE_TOP]
         if len(kept) >= min_candidates:
             sets.append(kept)

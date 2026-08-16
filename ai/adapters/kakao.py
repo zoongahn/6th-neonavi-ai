@@ -173,8 +173,8 @@ def fetch_pool(
     priorities=("RECOMMEND", "DISTANCE"),
     waypoint_fracs=(1 / 3, 1 / 2, 2 / 3),
     waypoint_mags=(0.012,),
-    dedupe_threshold: float = 0.8,
-    serve_detour: float = 1.5,
+    dedupe_threshold: float = 0.65,
+    serve_detour: float = 1.3,
     serve_top: int = 5,
     departure_time=None,
     errors=None,
@@ -202,9 +202,13 @@ def fetch_pool(
     vx, vy = dx - ox, dy - oy
     length = math.hypot(vx, vy) or 1.0
     px, py = -vy / length, vx / length
+    # ⚠️ 교란 크기는 O-D 길이에 비례시킨다. 0.012도(≈1.3km) 고정이면 짧은 구간에서
+    #    이탈이 경로의 절반이 되어, 골목을 뱅뱅 도는 1.7배 우회 경로가 만들어진다.
+    #    (5.5km 구간에서 실제로 1.69배가 나왔다.)
     for frac in waypoint_fracs:
         bx, by = ox + vx * frac, oy + vy * frac
-        for mag in waypoint_mags:
+        for mag0 in waypoint_mags:
+            mag = min(mag0, length * 0.12)
             for sgn in (1, -1):
                 wp = (bx + px * mag * sgn, by + py * mag * sgn)
                 raw += _call((ox, oy), (dx, dy), priority="RECOMMEND", waypoint=wp,
@@ -224,9 +228,13 @@ def fetch_pool(
         cr.id = f"route_{i}"
 
     if mode == "serve" and distinct:
-        best = min(cr.duration_min for cr in distinct)
-        distinct = [cr for cr in distinct if cr.duration_min <= best * serve_detour]
-        distinct.sort(key=lambda cr: cr.duration_min)
+        # 걸러내고 자르는 기준은 **거리**다. 소요시간은 실시간 교통으로 분 단위로
+        # 흔들려서(같은 경로가 24.6→25.4분), 그걸로 경계를 자르면 5·6위가 매 요청
+        # 뒤바뀐다. 후보 하나만 들락거려도 상대 정규화 때문에 전원 점수가 다시
+        # 계산돼 추천이 뒤집힌다. 거리는 같은 경로면 안 변한다.
+        best = min(cr.distance_km for cr in distinct)
+        distinct = [cr for cr in distinct if cr.distance_km <= best * serve_detour]
+        distinct.sort(key=lambda cr: cr.distance_km)
         distinct = distinct[:serve_top]
 
     return distinct
