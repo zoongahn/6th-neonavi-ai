@@ -73,11 +73,17 @@ def _axes_pairs(rows) -> float:
     return statistics.mean(vals) if vals else float('nan')
 
 
-def _mode_winner(axis_vals) -> dict:
-    """성향축 만족도 → 모드별 1순위 인덱스(규칙 가중치 MODE_PRESETS 기준)."""
+def _mode_winner(axis_vals, weights=None) -> dict:
+    """성향축 만족도 → 모드별 1순위 인덱스.
+
+    ⚠️ 기본값(MODE_PRESETS)은 **규칙 스코어러 기준**이다. 서빙(model_a)은
+    대표 프로필을 User Tower 에 통과시킨 가중치를 쓰므로, 모델 쪽을 잴 때는
+    `weights` 로 그걸 넘겨야 한다. 안 넘기면 서빙과 다른 걸 재게 된다
+    (실제로 그 차이가 49.5% vs 63.7% 였다).
+    """
     out = {}
     for mode in MODES:
-        w = MODE_PRESETS[mode]
+        w = (weights or MODE_PRESETS)[mode]
         out[mode] = max(range(len(axis_vals)),
                         key=lambda i: sum(w.get(a, 0.0) * axis_vals[i][a] for a in PREFERENCE_AXES))
     return out
@@ -99,6 +105,10 @@ def diagnose(ckpt_path=None, routes_path=None, verbose=True) -> dict:
     model_rows, rule_rows = [], []
     split_model = split_rule = has_dom = 0
 
+    # 서빙이 실제로 쓰는 모드 가중치(대표 프로필 → User Tower). 규칙 프리셋이 아니다.
+    serve_w = {m: model_a.mode_weights('eco' if m == 'eco' else m, model=handle)
+               for m in MODES}
+
     for cands in sets:
         norms = vectorize.normalize([vectorize.build_feature_vector(c) for c in cands])
         rule_ax = [vectorize.project_to_axes(n) for n in norms]
@@ -108,7 +118,7 @@ def diagnose(ckpt_path=None, routes_path=None, verbose=True) -> dict:
 
         model_rows += model_ax
         rule_rows += rule_ax
-        split_model += len(set(_mode_winner(model_ax).values())) > 1
+        split_model += len(set(_mode_winner(model_ax, serve_w).values())) > 1
         split_rule += len(set(_mode_winner(rule_ax).values())) > 1
         has_dom += any(all(_dominates(rule_ax[i], rule_ax[j])
                            for j in range(len(cands)) if j != i)

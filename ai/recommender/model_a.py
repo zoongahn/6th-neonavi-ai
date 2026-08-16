@@ -279,14 +279,16 @@ def counterfactual_tops(candidate_routes, model=None, enrich=False) -> dict:
     handle = model or load_model()
     m = handle.model
 
-    norms = vectorize.normalize(
-        [vectorize.build_feature_vector(r, enrich=enrich) for r in candidate_routes])
+    feats = [vectorize.build_feature_vector(r, enrich=enrich) for r in candidate_routes]
+    norms = vectorize.normalize(feats)
     f = m.satisfaction(torch.tensor([feature_row(n) for n in norms], dtype=torch.float32))
 
     tops = {}
     for mode, profile in REPRESENTATIVE_PROFILES.items():
         w = m.weights(torch.tensor([encode_profile(profile)], dtype=torch.float32))[0]
-        idx = int(torch.argmax((f * w).sum(dim=-1)))
+        # 배지도 랭킹과 같은 가드레일을 거쳐야 한다. 안 그러면 1순위에서 금지한
+        # 경로를 "스포티 우선이라면 이 경로"라고 가리키게 된다.
+        idx = _pick_top((f * w).sum(dim=-1), feats)
         tops[mode] = _route_id(candidate_routes[idx], idx)
     return tops
 
