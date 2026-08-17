@@ -71,5 +71,8 @@ class Recommendation:
     """추천 결과 1건 (점수 내림차순으로 리스트 반환)."""
     route_id: str
     score: float
-    reason: str                     # 사람이 읽는 추천 이유
-    features: dict = field(default_factory=dict)  # 디버그/설명용 특성값
+    reason: str                     # 사람이 읽는 추천 이유 — 이 경로만의 사실 근거
+    features: dict = field(default_factory=dict)  # 디버그/설명용 축 만족도
+    # 후보집합 내 상대 비교로 뽑은 근거 조각. reason 은 이걸 이어붙인 문장이다.
+    # 화면이 칩/뱃지로 따로 렌더할 수 있게 조각 상태로도 남긴다.
+    highlights: list[str] = field(default_factory=list)

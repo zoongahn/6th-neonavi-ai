@@ -10,6 +10,8 @@
 """
 from __future__ import annotations
 
+from datetime import datetime
+
 from ai.adapters import kakao
 from ai.adapters.geocode import GeocodeError, to_coords
 from ai.recommender import model_a
@@ -93,6 +95,27 @@ def _path(route) -> list:
     return [{'lng': round(x, 6), 'lat': round(y, 6)} for x, y in (route.coords or [])]
 
 
+def parse_departure_time(value) -> str | None:
+    """FE의 출발 시각 → 카카오 형식(YYYYMMDDHHMM). 'now'/빈값이면 None.
+
+    ⚠️ 카카오는 **과거 시각을 조용히 무시하고 현재 기준으로 답한다**(에러가 아니다).
+    시간대 계산이 어긋나면 기능이 동작하는 것처럼 보이면서 결과만 틀리므로,
+    과거로 판정되면 아예 None 으로 떨어뜨려 현재 시각 API를 쓴다.
+    """
+    if not value or value == 'now':
+        return None
+    if isinstance(value, str) and value.isdigit() and len(value) == 12:
+        parsed = datetime.strptime(value, '%Y%m%d%H%M')
+    else:
+        try:
+            parsed = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+        except ValueError:
+            raise RecommendError(f'출발 시각 형식을 알 수 없습니다: {value}')
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone().replace(tzinfo=None)
+    return None if parsed <= datetime.now() else parsed.strftime('%Y%m%d%H%M')
+
+
 def _title(rank: int, auto_recommend: bool, mode: str) -> str:
     if rank == 0:
         return '✨ 너네비추천' if auto_recommend else f'✨ {MODE_LABEL.get(mode, mode)} 추천'
@@ -117,8 +140,11 @@ def recommend(payload: dict) -> dict:
     except GeocodeError as exc:
         raise RecommendError(str(exc)) from exc
 
+    departure_time = parse_departure_time(payload.get('departure_time'))
+
     # 2. 후보 경로 pool (서빙 모드: 과도한 우회 제외 + 상위 N)
-    pool = kakao.fetch_pool(origin, destination, mode='serve')
+    pool = kakao.fetch_pool(origin, destination, mode='serve',
+                            departure_time=departure_time)
     if not pool:
         raise RecommendError('경로를 찾지 못했습니다. 출발지·도착지를 확인해 주세요.')
 
@@ -126,8 +152,15 @@ def recommend(payload: dict) -> dict:
     handle = _get_model()
     try:
         recs = model_a.recommend(model_profile, pool, model=handle, enrich=True)
+        # 반사실 설명: 다른 성향이었다면 어떤 경로가 1순위였을까
+        counterfactual = model_a.counterfactual_tops(pool, model=handle, enrich=True)
+        preference = model_a.describe_preference(model_profile, model=handle)
     except Exception as exc:
         raise RecommendError(f'추천 계산에 실패했습니다: {exc}') from exc
+
+    # 세 성향이 모두 같은 경로를 고르면 배지 3개가 한 줄에 몰려 정보가 되지 않는다.
+    # 그 경우엔 배지 대신 '모든 성향에서 1순위'라는 사실 자체를 알린다.
+    unanimous = len(set(counterfactual.values())) == 1
 
     by_id = {r.id: r for r in pool}
     routes = []
@@ -135,15 +168,20 @@ def recommend(payload: dict) -> dict:
         route = by_id.get(rec.route_id)
         if route is None:
             continue
+        modes_for_route = [m for m, rid in counterfactual.items() if rid == rec.route_id]
         routes.append({
             'route_id': rec.route_id,
             'title': _title(rank, auto_recommend, mode),
             'reason': rec.reason,
+            'highlights': rec.highlights,   # 근거 조각(칩 렌더용)
             'score': rec.score,
             'distance_km': round(route.distance_km, 1),
             'duration_min': round(route.duration_min),
             'toll': int(route.toll),
             'axes': rec.features,       # 성향축별 만족도(설명용)
+            # 이 경로를 1순위로 고르는 성향들. unanimous 면 비운다(FE가 문구로 대체).
+            'preferred_by': [] if unanimous else modes_for_route,
+            'preferred_by_labels': [] if unanimous else [MODE_LABEL[m] for m in modes_for_route],
             'bound': route.bound,       # 지도 초기 영역
             'path': _path(route),       # 지도에 그릴 폴리라인
         })
@@ -153,5 +191,8 @@ def recommend(payload: dict) -> dict:
         'destination': {'name': dest_name, 'lng': destination[0], 'lat': destination[1]},
         'mode': mode,
         'auto_recommend': auto_recommend,
+        'departure_time': departure_time,
+        # 성향은 사용자당 하나 → 목록 상단에 한 번만 표시하라는 뜻으로 최상위에 둔다.
+        'preference': {**preference, 'unanimous': unanimous},
         'routes': routes,
     }

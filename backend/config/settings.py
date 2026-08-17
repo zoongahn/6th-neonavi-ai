@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     # local apps
     'apps.users',
     'apps.routes',
+    'apps.trips',
 ]
 
 MIDDLEWARE = [
