@@ -1,23 +1,25 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-import { loadKakaoMap } from '../utils/kakaoMap';
+import { loadTmap } from '../utils/tmapMap';
 
 /*
-    주행 화면 전용 지도.
+    주행 화면 전용 지도 — TMAP 벡터(Tmapv3).
 
-    RouteMap 을 재사용하지 않는다. S4 는 "후보 여러 개를 한눈에"(bounds 로 전체를
-    담는다)가 목적이고, 여기는 "경로 하나를 따라가는 카메라"(현위치 고정·확대 유지·
-    진행방향 정렬)라 요구가 정반대다. 억지로 한 컴포넌트에 담으면 양쪽 다 나빠진다.
+    S5 만 카카오가 아니라 TMAP 을 쓴다. 카카오 웹 SDK(v3)는 래스터 타일이라
+    회전 API 가 없고, 컨테이너를 CSS 로 돌리면 지명 라벨까지 같이 돌아가
+    글자가 거꾸로 읽혔다. TMAP JS SDK v3 는 국내 서비스 중 유일하게 웹에서
+    벡터 렌더링(WebGL)을 제공해서, setBearing 으로 지도를 돌려도 라벨은
+    매 프레임 화면 기준으로 다시 그려져 항상 서 있다.
 
-    ⚠️ 지도 회전: 카카오 웹 SDK(v3)에는 **회전 API가 없다**(setBearing 류가 없음).
-       그래서 지도 컨테이너 자체를 CSS transform 으로 돌린다. 대가가 둘 있다.
-       ① 지명 라벨도 같이 돌아간다(거꾸로 읽히는 글자가 생긴다).
-       ② 돌린 뒤 네 귀퉁이가 비지 않으려면 컨테이너가 화면 대각선만큼 커야 한다.
-       현위치 마커를 회전대칭(과녁)으로 둔 건 그래야 역보정이 필요 없어서다.
+    S4(후보 비교)는 계속 카카오다. 경로선 좌표는 어느 쪽이든 WGS84 라 호환.
+
+    RouteMap 을 재사용하지 않는 이유는 이전과 같다: S4 는 "후보 여러 개를
+    한눈에", 여기는 "경로 하나를 따라가는 카메라"라 요구가 정반대다.
 */
 
 const ROUTE_COLOR = '#4f46e5';   // indigo-600
-const FOLLOW_LEVEL = 4;          // 주행 중 확대 수준
+const FOLLOW_ZOOM = 17;          // 주행 중 확대 수준 (웹 메르카토르 줌)
+const DRAG_PX = 8;               // 이보다 크게 끌면 "사용자가 지도를 움직였다"
 
 /**
  * @param {Array}  path          [{lng,lat}] 주행 중인 경로
@@ -33,61 +35,31 @@ export default function NavMap({
     follow = true,
     onFollowBreak,
 }) {
-    const outerRef = useRef(null);
     const containerRef = useRef(null);
-    const rotateRef = useRef(null);
     const mapRef = useRef(null);
     const lineRef = useRef(null);
     const markerRef = useRef(null);
-    // 카메라가 옮긴 중심까지 "사용자가 움직였다"로 세면 추적이 즉시 풀린다
-    const selfMoveRef = useRef(false);
     const wasFollowingRef = useRef(false);
-    // 359° → 1° 를 -358° 로 읽으면 지도가 한 바퀴 역회전한다. 누적각으로 들고 간다.
-    const turnRef = useRef(0);
+    const followBreakRef = useRef(onFollowBreak);
+    followBreakRef.current = onFollowBreak;
 
-    const [side, setSide] = useState(0);   // 회전해도 안 비도록 = 화면 대각선
     const [isReady, setIsReady] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
-    // 바깥 크기를 재서 회전용 정사각형 한 변을 정한다
+    // 지도 생성
     useEffect(() => {
-        const outer = outerRef.current;
-        if (!outer) return undefined;
-
-        const measure = () => {
-            const { width, height } = outer.getBoundingClientRect();
-            setSide(Math.ceil(Math.hypot(width, height)));
-        };
-        measure();
-
-        const observer = new ResizeObserver(measure);
-        observer.observe(outer);
-        return () => observer.disconnect();
-    }, []);
-
-    // 지도 생성 — 컨테이너 크기가 정해진 뒤에 만든다(카카오는 생성 시점 크기를 읽는다)
-    useEffect(() => {
-        if (!side) return undefined;
         let isActive = true;
 
-        loadKakaoMap()
-            .then((kakao) => {
-                if (!isActive || !containerRef.current) return;
-                if (mapRef.current) {
-                    mapRef.current.relayout();
-                    return;
-                }
-                const map = new kakao.maps.Map(containerRef.current, {
-                    center: new kakao.maps.LatLng(37.5665, 126.978),
-                    level: FOLLOW_LEVEL,
-                    draggable: true,
+        loadTmap()
+            .then((Tmapv3) => {
+                if (!isActive || !containerRef.current || mapRef.current) return;
+                const map = new Tmapv3.Map(containerRef.current, {
+                    center: new Tmapv3.LatLng(37.5665, 126.978),
+                    width: '100%',
+                    height: '100%',
+                    zoom: FOLLOW_ZOOM,
                 });
                 mapRef.current = map;
-
-                kakao.maps.event.addListener(map, 'dragstart', () => {
-                    if (!selfMoveRef.current && onFollowBreak) onFollowBreak();
-                });
-
                 setIsReady(true);
             })
             .catch((error) => {
@@ -96,98 +68,130 @@ export default function NavMap({
 
         return () => {
             isActive = false;
+            if (mapRef.current?.destroy) mapRef.current.destroy();
+            mapRef.current = null;
         };
-        // onFollowBreak 가 매 렌더 새로 만들어져도 지도를 다시 만들면 안 된다
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [side]);
+    }, []);
+
+    // 추적 해제 감지 — SDK 이벤트 대신 DOM 포인터로 잡는다.
+    // 프로그램이 카메라를 옮길 땐 포인터 이벤트가 없으므로 자기움직임 가드가
+    // 필요 없고, SDK 이벤트 이름(버전별 상이)에도 의존하지 않는다.
+    useEffect(() => {
+        const el = containerRef.current;
+        if (!el) return undefined;
+
+        let start = null;
+        const down = (e) => {
+            start = { x: e.clientX, y: e.clientY };
+        };
+        const move = (e) => {
+            if (!start) return;
+            if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > DRAG_PX) {
+                start = null;
+                if (followBreakRef.current) followBreakRef.current();
+            }
+        };
+        const up = () => {
+            start = null;
+        };
+
+        el.addEventListener('pointerdown', down);
+        el.addEventListener('pointermove', move);
+        el.addEventListener('pointerup', up);
+        el.addEventListener('pointercancel', up);
+        return () => {
+            el.removeEventListener('pointerdown', down);
+            el.removeEventListener('pointermove', move);
+            el.removeEventListener('pointerup', up);
+            el.removeEventListener('pointercancel', up);
+        };
+    }, []);
 
     // 경로 폴리라인 (경로가 바뀔 때만)
     useEffect(() => {
-        const kakao = window.kakao;
+        const Tmapv3 = window.Tmapv3;
         const map = mapRef.current;
-        if (!isReady || !kakao?.maps || !map || path.length < 2) return undefined;
+        if (!isReady || !Tmapv3 || !map || path.length < 2) return undefined;
 
         if (lineRef.current) lineRef.current.setMap(null);
 
-        const toLatLng = (p) => new kakao.maps.LatLng(p.lat, p.lng);
-        lineRef.current = new kakao.maps.Polyline({
-            path: path.map(toLatLng),
-            strokeWeight: 7,
+        const pts = path.map((p) => new Tmapv3.LatLng(p.lat, p.lng));
+        lineRef.current = new Tmapv3.Polyline({
+            path: pts,
             strokeColor: ROUTE_COLOR,
+            strokeWeight: 7,
             strokeOpacity: 0.9,
-            zIndex: 2,
+            map,
         });
-        lineRef.current.setMap(map);
 
         // 첫 진입은 경로 전체를 보여 주고, 첫 위치가 오면 추적으로 넘어간다
-        const bounds = new kakao.maps.LatLngBounds();
-        path.forEach((p) => bounds.extend(toLatLng(p)));
-        if (!bounds.isEmpty()) {
-            selfMoveRef.current = true;
-            map.setBounds(bounds, 60, 60, 60, 60);
-            selfMoveRef.current = false;
+        let minLat = Infinity;
+        let maxLat = -Infinity;
+        let minLng = Infinity;
+        let maxLng = -Infinity;
+        path.forEach((p) => {
+            minLat = Math.min(minLat, p.lat);
+            maxLat = Math.max(maxLat, p.lat);
+            minLng = Math.min(minLng, p.lng);
+            maxLng = Math.max(maxLng, p.lng);
+        });
+        if (map.fitBounds && Tmapv3.LatLngBounds) {
+            map.fitBounds(
+                new Tmapv3.LatLngBounds(
+                    new Tmapv3.LatLng(minLat, minLng),
+                    new Tmapv3.LatLng(maxLat, maxLng)
+                )
+            );
+        } else {
+            map.setCenter(
+                new Tmapv3.LatLng((minLat + maxLat) / 2, (minLng + maxLng) / 2)
+            );
         }
 
         return () => {
             if (lineRef.current) lineRef.current.setMap(null);
+            lineRef.current = null;
         };
     }, [isReady, path]);
 
     // 현위치 마커 · 카메라 · 회전
     useEffect(() => {
-        const kakao = window.kakao;
+        const Tmapv3 = window.Tmapv3;
         const map = mapRef.current;
-        if (!isReady || !kakao?.maps || !map || !position) return;
+        if (!isReady || !Tmapv3 || !map || !position) return;
 
-        const here = new kakao.maps.LatLng(position.lat, position.lng);
+        const here = new Tmapv3.LatLng(position.lat, position.lng);
 
         if (!markerRef.current) {
-            // 과녁형 현위치 표시. 진행방향은 지도를 돌려서 나타내므로 마커 자체는
-            // 방향을 갖지 않는다(회전대칭이라 지도가 돌아도 역보정이 필요 없다).
-            const el = document.createElement('div');
-            el.className = 'relative w-6 h-6';
-            el.innerHTML =
-                '<span class="absolute inset-0 rounded-full bg-indigo-500/25"></span>' +
-                '<span class="absolute inset-[5px] rounded-full bg-indigo-600 ' +
-                'border-2 border-white shadow-md"></span>';
-
-            markerRef.current = new kakao.maps.CustomOverlay({
+            // 과녁형 현위치 표시. 회전대칭이라 지도가 돌아도 모양이 안 변한다.
+            markerRef.current = new Tmapv3.Marker({
                 position: here,
-                content: el,
-                zIndex: 10,
-                yAnchor: 0.5,
-                xAnchor: 0.5,
+                iconHTML:
+                    '<div style="position:relative;width:24px;height:24px">' +
+                    '<span style="position:absolute;inset:0;border-radius:9999px;' +
+                    'background:rgba(99,102,241,0.25)"></span>' +
+                    '<span style="position:absolute;inset:5px;border-radius:9999px;' +
+                    'background:#4f46e5;border:2px solid #fff;' +
+                    'box-shadow:0 1px 3px rgba(0,0,0,0.3)"></span></div>',
+                anchor: 'center',
+                map,
             });
-            markerRef.current.setMap(map);
         } else {
             markerRef.current.setPosition(here);
         }
 
         if (follow) {
-            selfMoveRef.current = true;
-            // 추적을 시작하는 순간에만 확대한다. 매번 setLevel 하면 주행 중
+            // 추적을 시작하는 순간에만 확대한다. 매번 setZoom 하면 주행 중
             // 사용자가 축소해서 앞을 보려 해도 바로 되돌아가 버린다.
             if (!wasFollowingRef.current) {
-                map.setLevel(FOLLOW_LEVEL);
+                map.setZoom(FOLLOW_ZOOM);
                 wasFollowingRef.current = true;
-                turnRef.current = heading;
             }
-            map.setCenter(here);   // 프레임마다 오므로 panTo(애니메이션)는 밀린다
-            selfMoveRef.current = false;
-
-            // 진행방향이 화면 위를 향하도록 지도를 반대로 돌린다.
-            // 최단 회전으로 이어 붙여야 356°→2° 에서 거꾸로 한 바퀴 돌지 않는다.
-            const delta = (((heading - turnRef.current) % 360) + 540) % 360 - 180;
-            turnRef.current += delta;
-            if (rotateRef.current) {
-                rotateRef.current.style.transform =
-                    `translate(-50%, -50%) rotate(${-turnRef.current}deg)`;
-            }
+            map.setCenter(here);
+            // 진행방향이 화면 위를 향하도록. 벡터 지도라 라벨은 계속 서 있다.
+            map.setBearing(heading);
         } else {
             wasFollowingRef.current = false;
-            if (rotateRef.current) {
-                rotateRef.current.style.transform = 'translate(-50%, -50%) rotate(0deg)';
-            }
         }
     }, [isReady, position, heading, follow]);
 
@@ -202,20 +206,8 @@ export default function NavMap({
     }
 
     return (
-        <div ref={outerRef} className="w-full h-full overflow-hidden relative bg-gray-200">
-            <div
-                ref={rotateRef}
-                className="absolute left-1/2 top-1/2"
-                style={{
-                    width: side || '100%',
-                    height: side || '100%',
-                    transform: 'translate(-50%, -50%)',
-                    // 20fps 로 들어오는 방위를 그대로 찍으면 톡톡 튄다
-                    transition: 'transform 220ms linear',
-                }}
-            >
-                <div ref={containerRef} className="w-full h-full" />
-            </div>
+        <div className="w-full h-full overflow-hidden relative bg-gray-200">
+            <div ref={containerRef} className="w-full h-full" />
         </div>
     );
 }
