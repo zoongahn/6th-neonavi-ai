@@ -221,8 +221,11 @@ export default function S4_RouteResult() {
                                     </span>
                                     <button
                                         type="button"
-                                        className="flex-none text-[10px] text-gray-400 border border-gray-200 px-1.5 py-0.5 rounded bg-gray-50"
-                                        onClick={(event) => event.stopPropagation()}
+                                        className="flex-none text-xs font-bold text-white bg-indigo-600 px-3 py-1.5 rounded-lg shadow-sm active:bg-indigo-700 transition-colors"
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            navigate('/detail', { state: { route } });
+                                        }}
                                     >
                                         상세
                                     </button>
@@ -244,7 +247,6 @@ export default function S4_RouteResult() {
                     })}
                 </div>
 
-                {/*onClick 이벤트 추가 */}
                 <div className="px-4 flex gap-2">
                     <button
                         type="button"
@@ -265,7 +267,6 @@ export default function S4_RouteResult() {
                 </div>
             </div>
 
-            {/* 💡 바텀 시트 모달 컴포넌트 렌더링 */}
             <DepartureTimeModal
                 isOpen={isTimeModalOpen}
                 onClose={() => setIsTimeModalOpen(false)}
