@@ -116,6 +116,30 @@ def parse_departure_time(value) -> str | None:
     return None if parsed <= datetime.now() else parsed.strftime('%Y%m%d%H%M')
 
 
+# 카카오 result_code → 사용자가 뭘 고쳐야 하는지. 원문(result_msg)은 상황 설명일 뿐
+# 다음 행동을 알려주지 않는다. 예: 산 정상을 찍으면 102 가 온다.
+_POOL_HINTS = {
+    102: '{origin} 주변에 차로 들어갈 수 있는 도로가 없습니다. '
+         '검색 목록에서 인근 지점(예: 입구·주차장·역)을 골라 주세요.',
+    103: '{destination} 주변에 차로 들어갈 수 있는 도로가 없습니다. '
+         '검색 목록에서 인근 지점(예: 입구·주차장·역)을 골라 주세요.',
+    104: '출발지와 도착지가 너무 가깝습니다.',
+}
+
+
+def _pool_failure_message(errors, origin_name, dest_name) -> str:
+    """후보가 0개일 때, 카카오가 준 사유를 사용자가 조치 가능한 문구로 바꾼다."""
+    for code, msg in errors:
+        hint = _POOL_HINTS.get(code)
+        if hint:
+            return hint.format(origin=origin_name or '출발지',
+                               destination=dest_name or '도착지')
+    if errors:   # 모르는 코드면 카카오 원문이라도 보여준다(추측해 지어내지 않는다)
+        code, msg = errors[0]
+        return f'경로를 찾지 못했습니다. ({msg or code})'
+    return '경로를 찾지 못했습니다. 출발지·도착지를 확인해 주세요.'
+
+
 def _title(rank: int, auto_recommend: bool, mode: str) -> str:
     if rank == 0:
         return '✨ 너네비추천' if auto_recommend else f'✨ {MODE_LABEL.get(mode, mode)} 추천'
@@ -143,18 +167,26 @@ def recommend(payload: dict) -> dict:
     departure_time = parse_departure_time(payload.get('departure_time'))
 
     # 2. 후보 경로 pool (서빙 모드: 과도한 우회 제외 + 상위 N)
+    pool_errors = []
     pool = kakao.fetch_pool(origin, destination, mode='serve',
-                            departure_time=departure_time)
+                            departure_time=departure_time, errors=pool_errors)
     if not pool:
-        raise RecommendError('경로를 찾지 못했습니다. 출발지·도착지를 확인해 주세요.')
+        raise RecommendError(_pool_failure_message(pool_errors, origin_name, dest_name))
 
     # 3. 학습모델 스코어링 (공공데이터·DEM 특성 포함)
     handle = _get_model()
     try:
-        recs = model_a.recommend(model_profile, pool, model=handle, enrich=True)
+        # 자동 추천이면 프로필에서 성향을 추론하고, 사용자가 모드를 직접 골랐으면
+        # 그 모드의 가중치로 랭킹한다. 고른 모드가 랭킹에 반영되지 않으면
+        # 제목만 바뀌고 순서는 그대로여서 선택 자체가 무의미해진다.
+        chosen = None if auto_recommend else model_a.mode_weights(mode, model=handle)
+
+        recs = model_a.recommend(model_profile, pool, model=handle, enrich=True,
+                                 weights=chosen)
         # 반사실 설명: 다른 성향이었다면 어떤 경로가 1순위였을까
         counterfactual = model_a.counterfactual_tops(pool, model=handle, enrich=True)
-        preference = model_a.describe_preference(model_profile, model=handle)
+        preference = model_a.describe_preference(model_profile, model=handle,
+                                                 weights=chosen)
     except Exception as exc:
         raise RecommendError(f'추천 계산에 실패했습니다: {exc}') from exc
 
@@ -193,6 +225,11 @@ def recommend(payload: dict) -> dict:
         'auto_recommend': auto_recommend,
         'departure_time': departure_time,
         # 성향은 사용자당 하나 → 목록 상단에 한 번만 표시하라는 뜻으로 최상위에 둔다.
-        'preference': {**preference, 'unanimous': unanimous},
+        # source: 추론한 것인지(inferred) 사용자가 고른 것인지(selected) — 문구가 달라진다.
+        'preference': {
+            **preference,
+            'unanimous': unanimous,
+            'source': 'inferred' if auto_recommend else 'selected',
+        },
         'routes': routes,
     }

@@ -181,12 +181,14 @@ export default function S4_RouteResult() {
                         </span>
                     </div>
 
-                    {/* 추론된 성향은 여기서 한 번만. 경로마다 반복하면 설명이 아니라 소음이 된다. */}
+                    {/* 랭킹 근거는 여기서 한 번만. 경로마다 반복하면 설명이 아니라 소음이 된다. */}
                     {preference && (
                         <p className="text-xs text-gray-600 mt-2 pt-2 border-t border-gray-100">
-                            입력하신 정보로는{' '}
+                            {preference.source === 'selected' ? '선택하신 ' : '입력하신 정보로는 '}
                             <span className="font-bold text-gray-900">{preference.label}</span>
-                            을(를) 우선하는 성향입니다
+                            {preference.source === 'selected'
+                                ? ' 기준으로 정렬했습니다'
+                                : '을(를) 우선하는 성향입니다'}
                             {preference.unanimous && (
                                 <span className="block text-[11px] text-gray-400 mt-0.5">
                                     이 구간은 어떤 성향이어도 같은 경로가 1순위입니다

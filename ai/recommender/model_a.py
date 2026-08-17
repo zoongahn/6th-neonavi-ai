@@ -127,10 +127,13 @@ def _reason(highlights: list) -> str:
 
 
 @torch.no_grad()
-def recommend(user_profile, candidate_routes, model=None, enrich=False) -> list:
+def recommend(user_profile, candidate_routes, model=None, enrich=False,
+              weights=None) -> list:
     """모델 스코어링으로 점수 내림차순 Recommendation 리스트 반환.
 
     candidate_routes: CandidateRoute/dict 리스트. 원시특성은 vectorize 로 추출.
+    weights: 성향 가중치 dict 를 직접 지정(사용자가 모드를 손으로 고른 경우).
+             None 이면 프로필에서 추론한다(자동 추천). mode_weights() 참고.
     """
     if not candidate_routes:
         return []
@@ -143,7 +146,8 @@ def recommend(user_profile, candidate_routes, model=None, enrich=False) -> list:
     user_x = torch.tensor([encode_profile(user_profile)], dtype=torch.float32)
     route_x = torch.tensor([feature_row(n) for n in norms], dtype=torch.float32)
 
-    w = m.weights(user_x)[0]                       # (4,)
+    w = (torch.tensor([weights[a] for a in PREFERENCE_AXES], dtype=torch.float32)
+         if weights else m.weights(user_x)[0])     # (3,)
     f = m.satisfaction(route_x)                    # (N, 4)
     scores = (f * w).sum(dim=-1)                   # (N,)
     top = int(torch.argmax(scores))                # 대안 설명의 기준점
@@ -178,6 +182,23 @@ REPRESENTATIVE_PROFILES = {
 
 
 @torch.no_grad()
+def mode_weights(mode: str, model=None) -> dict:
+    """사용자가 손으로 고른 모드 → 성향 가중치.
+
+    규칙 프리셋(MODE_PRESETS)을 바로 쓰지 않고 **대표 프로필을 User Tower 에
+    통과시킨다**. 반사실 배지가 같은 방식으로 계산되므로, 이렇게 해야 '스포티
+    모드인데 스포티 배지가 1순위가 아닌' 모순이 구조적으로 생기지 않는다.
+    """
+    profile = REPRESENTATIVE_PROFILES.get(mode)
+    if profile is None:
+        raise ValueError(f'알 수 없는 모드: {mode}')
+    handle = model or load_model()
+    w = handle.model.weights(
+        torch.tensor([encode_profile(profile)], dtype=torch.float32))[0]
+    return {a: float(w[i]) for i, a in enumerate(PREFERENCE_AXES)}
+
+
+@torch.no_grad()
 def counterfactual_tops(candidate_routes, model=None, enrich=False) -> dict:
     """{모드: 그 성향이었다면 1순위였을 route_id}.
 
@@ -201,14 +222,17 @@ def counterfactual_tops(candidate_routes, model=None, enrich=False) -> dict:
 
 
 @torch.no_grad()
-def describe_preference(user_profile, model=None) -> dict:
-    """이 사용자가 무엇을 우선하는지 — 리스트 상단에 한 번만 보여줄 요약.
+def describe_preference(user_profile, model=None, weights=None) -> dict:
+    """무엇을 우선해 랭킹했는지 — 리스트 상단에 한 번만 보여줄 요약.
 
     성향은 사용자당 하나이므로 경로마다 반복하면 설명이 아니라 소음이 된다.
+    weights 를 주면(수동 모드) 그 가중치를 그대로 설명한다.
     """
-    handle = model or load_model()
-    w = handle.model.weights(
-        torch.tensor([encode_profile(user_profile)], dtype=torch.float32))[0]
-    weights = {a: round(float(w[i]), 3) for i, a in enumerate(PREFERENCE_AXES)}
+    if weights is None:
+        handle = model or load_model()
+        w = handle.model.weights(
+            torch.tensor([encode_profile(user_profile)], dtype=torch.float32))[0]
+        weights = {a: float(w[i]) for i, a in enumerate(PREFERENCE_AXES)}
+    weights = {a: round(float(weights[a]), 3) for a in PREFERENCE_AXES}
     axis = max(weights, key=weights.get)
     return {'axis': axis, 'label': AXIS_KOR.get(axis, axis), 'weights': weights}
