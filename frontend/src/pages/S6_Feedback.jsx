@@ -374,14 +374,8 @@ export default function S6_Feedback() {
 
     const getFeedbackConfig = () => {
         if (rating === 0) {
-            return {
-                starColor: 'text-gray-300',
-                btnColor:
-                    'bg-gray-200 text-gray-400',
-                btnText: '피드백 보내기'
-            };
+            return { starColor: 'text-gray-300', btnColor: 'bg-gray-200 text-gray-400', btnText: '피드백 보내기' };
         }
-
         if (rating <= 2) {
             return {
                 starColor: 'text-orange-400',
@@ -391,7 +385,6 @@ export default function S6_Feedback() {
                     `별 ${rating}개 · 아쉬워요`
             };
         }
-
         if (rating === 3) {
             return {
                 starColor: 'text-yellow-400',
@@ -401,14 +394,7 @@ export default function S6_Feedback() {
                     '별 3개 · 무난했어요'
             };
         }
-
-        return {
-            starColor: 'text-indigo-600',
-            btnColor:
-                'bg-indigo-600 text-white shadow-lg',
-            btnText:
-                `별 ${rating}개 · 아주 만족해요!`
-        };
+        return { starColor: 'text-indigo-600', btnColor: 'bg-indigo-600 text-white shadow-lg', btnText: `별 ${rating}개 · 아주 만족해요!` };
     };
 
     const config = getFeedbackConfig();
@@ -546,11 +532,8 @@ export default function S6_Feedback() {
 
             {/* 안내 */}
             <p className="text-gray-500 mb-10 text-sm">
-                방금 주행하신 추천 경로는
-                어떠셨나요?
-                <br />
-                피드백은 다음 맞춤 안내에
-                반영됩니다.
+                방금 주행하신 추천 경로는 어떠셨나요?<br />
+                피드백은 다음 맞춤 안내에 반영됩니다.
             </p>
 
             {/* 별점 */}

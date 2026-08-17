@@ -1,0 +1,49 @@
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+export default function FeedbackLoading() {
+    const navigate = useNavigate();
+    const [quote, setQuote] = useState('');
+
+    const quotes = [
+        "모든 길은 로마로 통한다. 당신의 목적지도 그렇습니다.",
+        "천 리 길도 한 걸음부터, 안전한 주행의 시작입니다.",
+        "인생은 속도가 아니라 방향입니다.",
+        "가장 안전한 길이 가장 빠른 길입니다.",
+        "길이 없으면 길을 찾고, 찾아도 없으면 길을 닦아 나가라.",
+        "좋은 동반자와 함께라면 길이 멀지 않습니다."
+    ];
+
+    useEffect(() => {
+        const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+        setQuote(randomQuote);
+
+        const timer = setTimeout(() => {
+            navigate('/home', { replace: true }); // 2초 뒤 홈으로 전환
+        }, 2000);
+
+        return () => clearTimeout(timer);
+    }, [navigate]);
+
+    return (
+        <div className="fixed inset-0 z-[999] flex flex-col items-center justify-center bg-indigo-600 text-white px-6 text-center animate-fade-in">
+            <div className="text-6xl mb-8 animate-bounce">🚘</div>
+
+            {/* 오직 명언만 보여주는 깔끔한 카드 영역 */}
+            <div className="bg-indigo-700/50 p-8 rounded-3xl backdrop-blur-sm max-w-sm w-full shadow-lg border border-indigo-500/30">
+                <p className="text-xl font-bold leading-relaxed mb-4 break-keep">"{quote}"</p>
+                <p className="text-sm text-indigo-200 font-medium tracking-widest">- NeoNavi -</p>
+            </div>
+
+            <style>{`
+                @keyframes fade-in {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                .animate-fade-in {
+                    animation: fade-in 0.3s ease-out;
+                }
+            `}</style>
+        </div>
+    );
+}
