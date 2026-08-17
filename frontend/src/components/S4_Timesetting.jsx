@@ -38,7 +38,9 @@ export default function DepartureTimeModal({ isOpen, onClose, onConfirm, initial
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex flex-col justify-end">
+        // inset-0 이면 데스크톱에서 바텀시트가 화면 전체 폭으로 퍼진다.
+        // 세로는 전체, 가로는 앱 프레임(max-w-lg)에 맞춰 가운데 정렬.
+        <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-lg z-[100] flex flex-col justify-end">
             {/* 어두운 배경 (클릭 시 닫힘) */}
             <div
                 className="absolute inset-0 bg-black/40 transition-opacity"

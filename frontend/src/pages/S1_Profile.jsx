@@ -334,8 +334,14 @@ export default function S1() {
             </div>
 
 
-            {/* 하단 버튼 */}
-            <div className="fixed bottom-0 left-0 w-full p-4 bg-white border-t">
+            {/*
+                하단 버튼.
+                ⚠️ `fixed` 는 앱 프레임이 아니라 **뷰포트** 기준이다. App.jsx 가
+                `max-w-lg` 로 폰 화면을 흉내내고 있으므로 `left-0 w-full` 로 두면
+                데스크톱에서 버튼 바가 프레임 밖으로 넘쳐 나간다.
+                가로만 프레임 폭에 맞춰 가운데로 고정한다(S0 와 같은 방식).
+            */}
+            <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg p-4 bg-white border-t">
                 {errorMessage && (
                     <p className="mb-3 text-sm font-semibold text-red-500">
                         {errorMessage}

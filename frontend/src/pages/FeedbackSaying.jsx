@@ -28,7 +28,9 @@ export default function FeedbackLoading() {
     }, [navigate]);
 
     return (
-        <div className="fixed inset-0 z-[999] flex flex-col items-center justify-center bg-indigo-600 text-white px-6 text-center animate-fade-in">
+        // 가로는 앱 프레임(max-w-lg)까지만. inset-0 이면 데스크톱에서 브라우저
+        // 화면 전체가 남보라색으로 덮여 폰 화면 흉내가 깨진다.
+        <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-lg z-[999] flex flex-col items-center justify-center bg-indigo-600 text-white px-6 text-center animate-fade-in">
             <div className="text-6xl mb-8 animate-bounce">🚘</div>
 
             {/* 오직 명언만 보여주는 깔끔한 카드 영역 */}
