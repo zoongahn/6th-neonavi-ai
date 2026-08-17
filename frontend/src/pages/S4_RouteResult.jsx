@@ -1,14 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import TopNavBar from '../components/TopNavBar';
 import RouteMap from '../components/RouteMap';
-import DepartureTimeModal from '../components/S4_Timesetting'; // 모달 컴포넌트 추가
+import DepartureTimeModal from '../components/S4_Timesetting';
 import { getRouteRecommendation } from '../api/naviApi';
 import { readProfile } from '../utils/profileStorage';
 import { buildRecommendRequest } from '../utils/buildRecommendRequest';
 
 const TRIP_STORAGE_KEY = 'neonaviTrip';
+const ROUTE_RESULT_CACHE_KEY = 'neonaviRouteResultSnapshot';
 
 function readSavedTrip() {
     try {
@@ -38,93 +39,210 @@ export default function S4_RouteResult() {
     const [routes, setRoutes] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
-    // 성향은 사용자당 하나라 경로마다 반복하지 않고 목록 위에 한 번만 보여준다.
     const [preference, setPreference] = useState(null);
 
-    // 💡 모달 상태 및 설정된 시간 상태 추가
+    // 상세에서 뒤로 돌아온 경우 React StrictMode에서도
+    // API가 다시 호출되지 않도록 복원한 requestKey를 기억
+    const restoredRequestKeyRef = useRef(null);
+
+    // 출발 시간 설정 모달
     const [isTimeModalOpen, setIsTimeModalOpen] = useState(false);
-    const [departureTime, setDepartureTime] = useState(tripData.departureTime || 'now');
+    const [departureTime, setDepartureTime] = useState(
+        tripData.departureTime || 'now'
+    );
 
     // 도착 예정 시각 = 출발 설정 시간(또는 지금) + 소요시간
     const formatArrival = (durationMin) => {
-        const baseTime = departureTime === 'now' ? Date.now() : new Date(departureTime).getTime();
-        const arrival = new Date(baseTime + durationMin * 60 * 1000);
+        const baseTime =
+            departureTime === 'now'
+                ? Date.now()
+                : new Date(departureTime).getTime();
 
-        return arrival.toLocaleTimeString('ko-KR', {
-            hour: 'numeric',
-            minute: '2-digit'
-        }) + ' 도착';
+        const arrival = new Date(
+            baseTime + durationMin * 60 * 1000
+        );
+
+        return (
+            arrival.toLocaleTimeString('ko-KR', {
+                hour: 'numeric',
+                minute: '2-digit'
+            }) + ' 도착'
+        );
     };
 
-    // 💡 requestKey에 departureTime 추가하여 시간이 바뀌면 useEffect 재실행
-    const requestKey = `${tripData.departure}|${tripData.destination}|${tripData.passenger}|${tripData.loadKg}|${selectedMode}|${autoRecommend}|${departureTime}`;
+    // 검색 조건이 바뀌면 새로운 추천을 받아오도록 하는 키
+    const requestKey =
+        `${tripData.departure}|` +
+        `${tripData.destination}|` +
+        `${tripData.passenger}|` +
+        `${tripData.loadKg}|` +
+        `${selectedMode}|` +
+        `${autoRecommend}|` +
+        `${departureTime}`;
 
     useEffect(() => {
         let isActive = true;
+
+        /*
+         * 상세 페이지에서 뒤로 돌아온 직후
+         * StrictMode 때문에 effect가 한 번 더 실행되더라도
+         * 같은 requestKey라면 API를 다시 호출하지 않는다.
+         */
+        if (restoredRequestKeyRef.current === requestKey) {
+            setIsLoading(false);
+
+            return () => {
+                isActive = false;
+            };
+        }
+
+        /*
+         * 상세보기 직전에 저장해둔 경로 결과가 있으면
+         * API 호출 없이 그대로 복원
+         */
+        const savedSnapshot = sessionStorage.getItem(
+            ROUTE_RESULT_CACHE_KEY
+        );
+
+        if (savedSnapshot) {
+            try {
+                const snapshot = JSON.parse(savedSnapshot);
+
+                if (
+                    snapshot.requestKey === requestKey &&
+                    Array.isArray(snapshot.routes)
+                ) {
+                    setRoutes(snapshot.routes);
+                    setPreference(snapshot.preference || null);
+
+                    setSelectedRouteId(
+                        snapshot.selectedRouteId ??
+                        (snapshot.routes.length ? 0 : null)
+                    );
+
+                    setErrorMessage('');
+                    setIsLoading(false);
+
+                    // StrictMode 재실행 방지
+                    restoredRequestKeyRef.current = requestKey;
+
+                    // 뒤로가기 복원용이므로 사용 후 삭제
+                    sessionStorage.removeItem(
+                        ROUTE_RESULT_CACHE_KEY
+                    );
+
+                    return () => {
+                        isActive = false;
+                    };
+                }
+            } catch (error) {
+                console.error(
+                    '저장된 경로 결과를 복원하지 못했습니다.',
+                    error
+                );
+            }
+
+            // 다른 검색 조건의 오래된 캐시는 삭제
+            sessionStorage.removeItem(
+                ROUTE_RESULT_CACHE_KEY
+            );
+        }
 
         const fetchRoutes = async () => {
             setIsLoading(true);
             setErrorMessage('');
 
             try {
-                const request = buildRecommendRequest(readProfile(), {
-                    ...tripData,
-                    mode: selectedMode,
-                    autoRecommend,
-                    departureTime // API 요청 시 출발 시간 전달
-                });
+                const request = buildRecommendRequest(
+                    readProfile(),
+                    {
+                        ...tripData,
+                        mode: selectedMode,
+                        autoRecommend,
+                        departureTime
+                    }
+                );
 
-                const data = await getRouteRecommendation(request);
+                const data = await getRouteRecommendation(
+                    request
+                );
+
                 if (!isActive) return;
 
-                const list = (data.routes || []).map((route, index) => ({
-                    id: index,
-                    routeId: route.route_id,
-                    title: route.title,
-                    description: route.reason,
-                    time: `${route.duration_min}분`,
-                    arrivalTime: formatArrival(route.duration_min),
-                    distance: `${route.distance_km}km`,
-                    fee: `${route.toll.toLocaleString()}원`,
-                    // 이 경로를 1순위로 고르는 다른 성향들 (없으면 빈 배열)
-                    preferredBy: route.preferred_by_labels || [],
-                    path: route.path || []
-                }));
+                const list = (data.routes || []).map(
+                    (route, index) => ({
+                        id: index,
+                        routeId: route.route_id,
+                        title: route.title,
+                        description: route.reason,
+                        time: `${route.duration_min}분`,
+                        arrivalTime: formatArrival(
+                            route.duration_min
+                        ),
+                        distance: `${route.distance_km}km`,
+                        fee: `${route.toll.toLocaleString()}원`,
+                        preferredBy:
+                            route.preferred_by_labels || [],
+                        path: route.path || []
+                    })
+                );
 
                 setRoutes(list);
-                setPreference(data.preference || null);
-                setSelectedRouteId(list.length ? 0 : null);
+                setPreference(
+                    data.preference || null
+                );
+                setSelectedRouteId(
+                    list.length ? 0 : null
+                );
             } catch (error) {
                 if (!isActive) return;
-                console.error('경로 추천 실패', error);
-                setErrorMessage(error.message || '경로를 불러오지 못했습니다.');
+
+                console.error(
+                    '경로 추천 실패',
+                    error
+                );
+
+                setErrorMessage(
+                    error.message ||
+                    '경로를 불러오지 못했습니다.'
+                );
+
                 setRoutes([]);
             } finally {
-                if (isActive) setIsLoading(false);
+                if (isActive) {
+                    setIsLoading(false);
+                }
             }
         };
 
         fetchRoutes();
+
         return () => {
             isActive = false;
         };
+
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [requestKey]);
 
-    const selectedRoute = routes.find((route) => route.id === selectedRouteId) || routes[0];
+    const selectedRoute =
+        routes.find(
+            (route) => route.id === selectedRouteId
+        ) || routes[0];
 
     const handleStartNavigation = () => {
         const navigationData = {
             ...tripData,
             mode: selectedMode,
             autoRecommend,
-            departureTime, // 설정된 시간 정보 저장
+            departureTime,
             route: selectedRoute,
-            // 층3 지표용 — 모델이 1순위로 민 경로와 사용자가 실제로 고른 경로가
-            // 같은지 세려면 둘 다 필요하다. 여기서 안 넘기면 S6에서 복원할 수 없다.
-            recommendedRouteId: routes[0]?.routeId || '',
+
+            // 층3 지표용
+            recommendedRouteId:
+                routes[0]?.routeId || '',
             candidateCount: routes.length,
-            preferenceAxis: preference?.axis || ''
+            preferenceAxis:
+                preference?.axis || ''
         };
 
         sessionStorage.setItem(
@@ -139,156 +257,279 @@ export default function S4_RouteResult() {
 
     return (
         <div className="relative w-full h-[100dvh] overflow-hidden flex flex-col bg-gray-100">
+
+            {/* 상단 네비게이션 */}
             <div className="relative z-50 bg-white">
                 <TopNavBar title="경로 탐색 결과" />
             </div>
 
+            {/* 지도 */}
             <div className="absolute inset-0 top-[56px] w-full h-full bg-gray-200 z-0">
                 {routes.length > 0 ? (
                     <RouteMap
                         routes={routes}
-                        selectedId={selectedRouteId ?? 0}
-                        onSelect={setSelectedRouteId}
+                        selectedId={
+                            selectedRouteId ?? 0
+                        }
+                        onSelect={
+                            setSelectedRouteId
+                        }
                     />
                 ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center opacity-40">
-                        <span className="text-6xl mb-4">🗺️</span>
+                        <span className="text-6xl mb-4">
+                            🗺️
+                        </span>
+
                         <p className="text-gray-500 font-bold text-xl">
-                            {isLoading ? '경로를 찾는 중' : '표시할 경로가 없습니다'}
+                            {isLoading
+                                ? '경로를 찾는 중'
+                                : '표시할 경로가 없습니다'}
                         </p>
                     </div>
                 )}
             </div>
 
+            {/* 출발지/도착지 + 추천 모드 */}
             <div className="absolute top-[72px] left-4 right-4 z-30 space-y-2">
+
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-4 py-3">
-                    <p className="text-xs text-gray-500 mb-1">탐색 경로</p>
+                    <p className="text-xs text-gray-500 mb-1">
+                        탐색 경로
+                    </p>
+
                     <p className="font-bold text-gray-900 break-words">
                         {tripData.departure || '출발지'}
-                        <span className="mx-2 text-indigo-500">→</span>
+
+                        <span className="mx-2 text-indigo-500">
+                            →
+                        </span>
+
                         {tripData.destination || '도착지'}
                     </p>
                 </div>
 
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-4 py-3">
-                    <p className="text-xs text-gray-500 mb-1">현재 적용 모드</p>
+
+                    <p className="text-xs text-gray-500 mb-1">
+                        현재 적용 모드
+                    </p>
+
                     <div className="flex items-center justify-between">
+
                         <p className="font-extrabold text-indigo-600">
-                            {autoRecommend ? 'AI 자동 추천' : selectedMode}
+                            {autoRecommend
+                                ? 'AI 자동 추천'
+                                : selectedMode}
                         </p>
+
                         <span className="text-xs text-gray-500">
-                            {autoRecommend ? '성향 기반' : '직접 선택'}
+                            {autoRecommend
+                                ? '성향 기반'
+                                : '직접 선택'}
                         </span>
+
                     </div>
 
-                    {/* 추론된 성향은 여기서 한 번만. 경로마다 반복하면 설명이 아니라 소음이 된다. */}
                     {preference && (
                         <p className="text-xs text-gray-600 mt-2 pt-2 border-t border-gray-100">
+
                             입력하신 정보로는{' '}
-                            <span className="font-bold text-gray-900">{preference.label}</span>
+
+                            <span className="font-bold text-gray-900">
+                                {preference.label}
+                            </span>
+
                             을(를) 우선하는 성향입니다
+
                             {preference.unanimous && (
                                 <span className="block text-[11px] text-gray-400 mt-0.5">
                                     이 구간은 어떤 성향이어도 같은 경로가 1순위입니다
                                 </span>
                             )}
+
                         </p>
                     )}
+
                 </div>
             </div>
 
+            {/* 하단 경로 선택 영역 */}
             <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-white via-white/95 to-transparent pt-8 pb-8">
+
+                {/* 로딩 */}
                 {isLoading && (
                     <div className="px-4 pb-4">
                         <div className="bg-white rounded-2xl border border-gray-200 px-4 py-6 text-center">
-                            <p className="font-bold text-gray-700">성향에 맞는 경로를 찾는 중...</p>
-                            <p className="text-xs text-gray-500 mt-1">도로·신호·경사 정보를 분석하고 있어요</p>
+
+                            <p className="font-bold text-gray-700">
+                                성향에 맞는 경로를 찾는 중...
+                            </p>
+
+                            <p className="text-xs text-gray-500 mt-1">
+                                도로·신호·경사 정보를 분석하고 있어요
+                            </p>
+
                         </div>
                     </div>
                 )}
 
+                {/* 오류 */}
                 {!isLoading && errorMessage && (
                     <div className="px-4 pb-4">
                         <div className="bg-white rounded-2xl border border-red-200 px-4 py-5">
-                            <p className="font-bold text-red-500 mb-1">경로를 불러오지 못했습니다</p>
-                            <p className="text-xs text-gray-600 whitespace-pre-line">{errorMessage}</p>
+
+                            <p className="font-bold text-red-500 mb-1">
+                                경로를 불러오지 못했습니다
+                            </p>
+
+                            <p className="text-xs text-gray-600 whitespace-pre-line">
+                                {errorMessage}
+                            </p>
+
                         </div>
                     </div>
                 )}
 
+                {/* 경로 카드 */}
                 <div className="flex overflow-x-auto gap-3 px-4 pb-4 hide-scrollbar">
+
                     {routes.map((route) => {
-                        const isSelected = selectedRouteId === route.id;
+                        const isSelected =
+                            selectedRouteId === route.id;
 
                         return (
                             <div
                                 key={route.id}
                                 role="button"
                                 tabIndex={0}
-                                onClick={() => setSelectedRouteId(route.id)}
+                                onClick={() =>
+                                    setSelectedRouteId(
+                                        route.id
+                                    )
+                                }
                                 onKeyDown={(event) => {
-                                    if (event.key === 'Enter' || event.key === ' ') {
-                                        setSelectedRouteId(route.id);
+                                    if (
+                                        event.key ===
+                                            'Enter' ||
+                                        event.key === ' '
+                                    ) {
+                                        setSelectedRouteId(
+                                            route.id
+                                        );
                                     }
                                 }}
-                                className={`min-w-[180px] flex-shrink-0 p-4 rounded-2xl cursor-pointer transition-all bg-white shadow-sm ${isSelected
-                                    ? 'border-[2.5px] border-indigo-600'
-                                    : 'border border-gray-200 opacity-90'
-                                    }`}
+                                className={`min-w-[180px] flex-shrink-0 p-4 rounded-2xl cursor-pointer transition-all bg-white shadow-sm ${
+                                    isSelected
+                                        ? 'border-[2.5px] border-indigo-600'
+                                        : 'border border-gray-200 opacity-90'
+                                }`}
                             >
+
                                 <div className="flex justify-between items-start gap-2 mb-1">
+
                                     <span
-                                        className={`font-extrabold text-[15px] ${isSelected ? 'text-indigo-600' : 'text-gray-700'
-                                            }`}
+                                        className={`font-extrabold text-[15px] ${
+                                            isSelected
+                                                ? 'text-indigo-600'
+                                                : 'text-gray-700'
+                                        }`}
                                     >
                                         {route.title}
                                     </span>
+
+                                    {/* 상세 버튼 */}
                                     <button
                                         type="button"
                                         className="flex-none text-xs font-bold text-white bg-indigo-600 px-3 py-1.5 rounded-lg shadow-sm active:bg-indigo-700 transition-colors"
                                         onClick={(event) => {
                                             event.stopPropagation();
-                                            navigate('/detail', { state: { route } });
+
+                                            /*
+                                             * 상세 페이지로 가기 직전
+                                             * 현재 추천 결과를 저장한다.
+                                             */
+                                            sessionStorage.setItem(
+                                                ROUTE_RESULT_CACHE_KEY,
+                                                JSON.stringify({
+                                                    requestKey,
+                                                    routes,
+                                                    preference,
+
+                                                    // 상세를 누른 경로를 선택 상태로 기억
+                                                    selectedRouteId:
+                                                        route.id
+                                                })
+                                            );
+
+                                            navigate(
+                                                '/detail',
+                                                {
+                                                    state: {
+                                                        route
+                                                    }
+                                                }
+                                            );
                                         }}
                                     >
                                         상세
                                     </button>
+
                                 </div>
-                                {/* 다른 성향이었다면 이 경로가 1순위였다는 표시 */}
-                                {route.preferredBy.length > 0 && (
+
+                                {/* 다른 성향이라면 이 경로가 1순위 */}
+                                {route.preferredBy.length >
+                                    0 && (
                                     <div className="flex flex-wrap gap-1 mb-1.5">
-                                        {route.preferredBy.map((label) => (
-                                            <span
-                                                key={label}
-                                                className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded"
-                                            >
-                                                {label} 우선이라면
-                                            </span>
-                                        ))}
+
+                                        {route.preferredBy.map(
+                                            (label) => (
+                                                <span
+                                                    key={
+                                                        label
+                                                    }
+                                                    className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded"
+                                                >
+                                                    {label}{' '}
+                                                    우선이라면
+                                                </span>
+                                            )
+                                        )}
+
                                     </div>
                                 )}
 
                                 <p className="text-xs text-gray-500 mb-2 leading-5">
                                     {route.description}
                                 </p>
+
                                 <div className="text-2xl font-black text-gray-900 tracking-tight my-1.5">
                                     {route.time}
                                 </div>
+
                                 <div className="text-sm text-gray-600 mb-1 font-medium">
                                     {route.arrivalTime}
                                 </div>
+
                                 <div className="text-xs text-gray-500 font-medium">
-                                    {route.distance} · {route.fee}
+                                    {route.distance} ·{' '}
+                                    {route.fee}
                                 </div>
+
                             </div>
                         );
                     })}
+
                 </div>
 
+                {/* 하단 버튼 */}
                 <div className="px-4 flex gap-2">
+
                     <button
                         type="button"
-                        onClick={() => setIsTimeModalOpen(true)}
+                        onClick={() =>
+                            setIsTimeModalOpen(true)
+                        }
                         className="flex-none w-1/3 bg-gray-500 text-white py-4 rounded-xl font-bold text-[15px] shadow-sm active:bg-gray-600 transition-colors"
                     >
                         다른시간 출발
@@ -296,18 +537,24 @@ export default function S4_RouteResult() {
 
                     <button
                         type="button"
-                        onClick={handleStartNavigation}
+                        onClick={
+                            handleStartNavigation
+                        }
                         disabled={!selectedRoute}
                         className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-md active:bg-indigo-700 transition-colors disabled:bg-gray-400"
                     >
                         안내시작
                     </button>
+
                 </div>
             </div>
 
+            {/* 출발시간 선택 */}
             <DepartureTimeModal
                 isOpen={isTimeModalOpen}
-                onClose={() => setIsTimeModalOpen(false)}
+                onClose={() =>
+                    setIsTimeModalOpen(false)
+                }
                 initialTime={departureTime}
                 onConfirm={(newTime) => {
                     setDepartureTime(newTime);
@@ -315,9 +562,16 @@ export default function S4_RouteResult() {
             />
 
             <style>{`
-                .hide-scrollbar::-webkit-scrollbar { display: none; }
-                .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+                .hide-scrollbar::-webkit-scrollbar {
+                    display: none;
+                }
+
+                .hide-scrollbar {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                }
             `}</style>
+
         </div>
     );
 }
