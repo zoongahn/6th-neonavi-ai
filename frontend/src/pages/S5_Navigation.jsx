@@ -66,13 +66,23 @@ export default function S5_Navigation() {
     });
 
     // 현위치를 경로선 위로 붙인다. 직전 인덱스를 힌트로 줘서 엉뚱한 구간에 붙는 걸 막는다.
+    //
+    // ⚠️ state + effect 로 만들면 안 된다. 위치가 20fps 로 갱신되는 동안
+    // setPosition 커밋 → effect → setSnapped 재커밋의 중첩 업데이트 사슬이
+    // 계속 이어져 React 가 무한루프로 오인한다("Maximum update depth exceeded").
+    // 파생값이므로 렌더 중에 계산한다.
     const snapHintRef = useRef(0);
-    const [snapped, setSnapped] = useState(null);
-    useEffect(() => {
-        if (!position || !cum || path.length < 2) return;
+    const snapPathRef = useRef(path);
+    if (snapPathRef.current !== path) {
+        // 경로가 바뀌면(모드 전환) 힌트도 처음부터
+        snapPathRef.current = path;
+        snapHintRef.current = 0;
+    }
+    const snapped = useMemo(() => {
+        if (!position || !cum || path.length < 2) return null;
         const hit = snapToPath(path, cum, position, snapHintRef.current);
         snapHintRef.current = hit.index;
-        setSnapped(hit);
+        return hit;
     }, [position, path, cum]);
 
     /*
@@ -95,8 +105,6 @@ export default function S5_Navigation() {
 
     // 경로가 바뀌면(모드 전환) 진행 상태를 처음으로
     useEffect(() => {
-        snapHintRef.current = 0;
-        setSnapped(null);
         setHasStarted(false);
     }, [path]);
 

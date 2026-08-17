@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { loadTmap } from '../utils/tmapMap';
 
@@ -39,12 +39,53 @@ export default function NavMap({
     const mapRef = useRef(null);
     const lineRef = useRef(null);
     const markerRef = useRef(null);
+    // SDK 가 iconHTML 을 복제해 붙이므로, 렌더된 요소들은 DOM 에서 찾아 쥔다
+    const arrowElRef = useRef(null);
+    const cursorElRef = useRef(null);
+    // 359°→1° 를 -358° 로 돌지 않도록 누적각으로 이어 붙인다
+    const arrowTurnRef = useRef(0);
     const wasFollowingRef = useRef(false);
     const followBreakRef = useRef(onFollowBreak);
     followBreakRef.current = onFollowBreak;
+    const headingRef = useRef(heading);
+    headingRef.current = heading;
 
     const [isReady, setIsReady] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
+
+    /*
+        커서(원판+화살표)를 지도 시점에 맞춘다.
+          화살표  rotate(진행방위 − 지도 bearing) → 지도가 어떻게 돌아도 실제 진행방향
+          원판    rotateX(지도 pitch)             → 기울이면 바닥에 누운 것처럼 눌린다
+        위치 갱신(20fps)에서만 계산하면 사용자가 지도를 돌리는 동안 화살표가
+        늦게 계단식으로 따라와 떨려 보인다. 그래서 Rotate/Pitch 이벤트에도
+        묶어서 프레임마다 부른다(그래서 CSS transition 도 걸지 않는다).
+    */
+    const syncCursor = useCallback(() => {
+        const map = mapRef.current;
+        if (!map) return;
+        if (!arrowElRef.current || !arrowElRef.current.isConnected) {
+            arrowElRef.current =
+                containerRef.current?.querySelector('.nav-heading-arrow') || null;
+            cursorElRef.current =
+                containerRef.current?.querySelector('.nav-cursor') || null;
+        }
+        if (arrowElRef.current) {
+            const mapBearing =
+                typeof map.getBearing === 'function' ? map.getBearing() : 0;
+            const target = headingRef.current - mapBearing;
+            const delta =
+                (((target - arrowTurnRef.current) % 360) + 540) % 360 - 180;
+            arrowTurnRef.current += delta;
+            arrowElRef.current.style.transform =
+                `rotate(${arrowTurnRef.current}deg)`;
+        }
+        if (cursorElRef.current) {
+            const pitch =
+                typeof map.getPitch === 'function' ? map.getPitch() : 0;
+            cursorElRef.current.style.transform = `rotateX(${pitch}deg)`;
+        }
+    }, []);
 
     // 지도 생성
     useEffect(() => {
@@ -60,7 +101,14 @@ export default function NavMap({
                     zoom: FOLLOW_ZOOM,
                 });
                 mapRef.current = map;
-                setIsReady(true);
+                if (process.env.NODE_ENV !== 'production') {
+                    window.__navMap = map;   // 개발용: 콘솔에서 피치·베어링 실험
+                }
+                // 벡터 지도는 스타일 로드가 끝나기 전에 폴리라인·마커를 얹으면
+                // "No style loaded" 예외가 난다. ConfigLoad 후에만 그린다.
+                map.on('ConfigLoad', () => {
+                    if (isActive) setIsReady(true);
+                });
             })
             .catch((error) => {
                 if (isActive) setErrorMessage(error.message);
@@ -72,6 +120,20 @@ export default function NavMap({
             mapRef.current = null;
         };
     }, []);
+
+    // 지도를 돌리거나 기울이는 동안 커서가 프레임 단위로 따라오도록
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!isReady || !map) return undefined;
+        map.on('Rotate', syncCursor);
+        map.on('Pitch', syncCursor);
+        return () => {
+            if (typeof map.off === 'function') {
+                map.off('Rotate', syncCursor);
+                map.off('Pitch', syncCursor);
+            }
+        };
+    }, [isReady, syncCursor]);
 
     // 추적 해제 감지 — SDK 이벤트 대신 DOM 포인터로 잡는다.
     // 프로그램이 카메라를 옮길 땐 포인터 이벤트가 없으므로 자기움직임 가드가
@@ -163,16 +225,26 @@ export default function NavMap({
         const here = new Tmapv3.LatLng(position.lat, position.lng);
 
         if (!markerRef.current) {
-            // 과녁형 현위치 표시. 회전대칭이라 지도가 돌아도 모양이 안 변한다.
+            // 주행 커서: 큰 원(흰 바탕 + 옅은 후광) 안의 방향 화살표.
+            // 아래 effect 에서 두 축을 맞춘다 — 바닥에 붙은 것처럼 보이게.
+            //   nav-cursor(전체)  : rotateX(지도 pitch)  → 기울이면 원이 눌린다
+            //   nav-heading-arrow : rotate(진행방위 − 지도 bearing)
+            // 추적 중엔 지도가 진행방향으로 돌아가 있어 화살표가 항상 위를 향하고,
+            // 추적을 풀면 지도 위에서 실제 진행방위를 가리킨다.
             markerRef.current = new Tmapv3.Marker({
                 position: here,
                 iconHTML:
-                    '<div style="position:relative;width:24px;height:24px">' +
+                    '<div class="nav-cursor" ' +
+                    'style="position:relative;width:60px;height:60px">' +
                     '<span style="position:absolute;inset:0;border-radius:9999px;' +
-                    'background:rgba(99,102,241,0.25)"></span>' +
-                    '<span style="position:absolute;inset:5px;border-radius:9999px;' +
-                    'background:#4f46e5;border:2px solid #fff;' +
-                    'box-shadow:0 1px 3px rgba(0,0,0,0.3)"></span></div>',
+                    'background:rgba(99,102,241,0.18)"></span>' +
+                    '<span style="position:absolute;inset:6px;border-radius:9999px;' +
+                    'background:#ffffff;box-shadow:0 1px 6px rgba(0,0,0,0.35)"></span>' +
+                    '<svg class="nav-heading-arrow" viewBox="0 0 24 24" ' +
+                    'style="position:absolute;inset:11px">' +
+                    '<path d="M12 3 L19.5 20 L12 16 L4.5 20 Z" fill="#4f46e5" ' +
+                    'stroke="#4338ca" stroke-width="0.5" stroke-linejoin="round"/>' +
+                    '</svg></div>',
                 anchor: 'center',
                 map,
             });
@@ -193,7 +265,10 @@ export default function NavMap({
         } else {
             wasFollowingRef.current = false;
         }
-    }, [isReady, position, heading, follow]);
+
+        // 방위·기울기 반영 (지도 조작 중엔 Rotate/Pitch 이벤트가 대신 부른다)
+        syncCursor();
+    }, [isReady, position, heading, follow, syncCursor]);
 
     if (errorMessage) {
         return (
