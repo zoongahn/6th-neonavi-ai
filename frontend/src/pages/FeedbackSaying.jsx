@@ -1,21 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+// 컴포넌트 밖에 둔다. 안에 두면 렌더마다 새 배열이 만들어져 useEffect 의존성
+// 경고가 나고, CI 빌드(경고를 에러로 취급)가 통째로 실패한다.
+const QUOTES = [
+    "모든 길은 로마로 통한다. 당신의 목적지도 그렇습니다.",
+    "천 리 길도 한 걸음부터, 안전한 주행의 시작입니다.",
+    "인생은 속도가 아니라 방향입니다.",
+    "가장 안전한 길이 가장 빠른 길입니다.",
+    "길이 없으면 길을 찾고, 찾아도 없으면 길을 닦아 나가라.",
+    "좋은 동반자와 함께라면 길이 멀지 않습니다."
+];
+
 export default function FeedbackLoading() {
     const navigate = useNavigate();
     const [quote, setQuote] = useState('');
 
-    const quotes = [
-        "모든 길은 로마로 통한다. 당신의 목적지도 그렇습니다.",
-        "천 리 길도 한 걸음부터, 안전한 주행의 시작입니다.",
-        "인생은 속도가 아니라 방향입니다.",
-        "가장 안전한 길이 가장 빠른 길입니다.",
-        "길이 없으면 길을 찾고, 찾아도 없으면 길을 닦아 나가라.",
-        "좋은 동반자와 함께라면 길이 멀지 않습니다."
-    ];
-
     useEffect(() => {
-        const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+        const randomQuote = QUOTES[Math.floor(Math.random() * QUOTES.length)];
         setQuote(randomQuote);
 
         const timer = setTimeout(() => {
