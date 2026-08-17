@@ -95,6 +95,36 @@ def _path(route) -> list:
     return [{'lng': round(x, 6), 'lat': round(y, 6)} for x, y in (route.coords or [])]
 
 
+# 카카오 guide type 중 "안내"가 아닌 것. 1000(경유지)은 **우리가 pool 을 넓히려고
+# 넣은 가짜 경유지**라 사용자에게 보이면 안 된다("경유지 방면" 같은 문구가 뜬다).
+_WAYPOINT_GUIDE = 1000
+
+
+def _nav_steps(route) -> list:
+    """경로 → 주행 안내 스텝 [{coord_index, lng, lat, guidance, type, distance, duration}].
+
+    - `guidance` 는 카카오가 준 한국어 안내문 그대로다(우리가 지어내지 않는다).
+    - `distance`/`duration` 은 **직전 안내지점부터** 이 지점까지의 값이다(누적 아님).
+    - `coord_index` 는 `path` 배열에서의 위치. 화면은 이걸로 남은거리를 계산한다.
+      좌표 투영으로 찾으면 지하차도·분기점처럼 폴리라인이 자기 자신과 가까워지는
+      구간에서 엉뚱한 지점에 붙는다.
+    """
+    steps = []
+    for g in (route.guides or []):
+        if g.get('type') == _WAYPOINT_GUIDE:
+            continue
+        steps.append({
+            'coord_index': int(g.get('coord_index', 0)),
+            'lng': round(float(g.get('x', 0)), 6),
+            'lat': round(float(g.get('y', 0)), 6),
+            'guidance': g.get('guidance', '') or g.get('name', ''),
+            'type': g.get('type'),
+            'distance': int(g.get('distance', 0) or 0),
+            'duration': int(g.get('duration', 0) or 0),
+        })
+    return steps
+
+
 def parse_departure_time(value) -> str | None:
     """FE의 출발 시각 → 카카오 형식(YYYYMMDDHHMM). 'now'/빈값이면 None.
 
@@ -216,6 +246,7 @@ def recommend(payload: dict) -> dict:
             'preferred_by_labels': [] if unanimous else [MODE_LABEL[m] for m in modes_for_route],
             'bound': route.bound,       # 지도 초기 영역
             'path': _path(route),       # 지도에 그릴 폴리라인
+            'steps': _nav_steps(route),  # 주행 안내(S5 턴바이턴)
         })
 
     return {
