@@ -5,7 +5,7 @@ import TopNavBar from '../components/TopNavBar';
 import RouteMap from '../components/RouteMap';
 import DepartureTimeModal from '../components/S4_Timesetting'; // 모달 컴포넌트 추가
 import { getRouteRecommendation } from '../api/naviApi';
-import { readProfile } from '../utils/profileStorage';
+import { hasUsableProfile, readProfile } from '../utils/profileStorage';
 import { buildRecommendRequest } from '../utils/buildRecommendRequest';
 import { readTrip, writeTrip } from '../utils/tripStorage';
 
@@ -28,6 +28,8 @@ export default function S4_RouteResult() {
     const [routes, setRoutes] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
+    // 프로필이 없어 추천 자체가 불가능한 상태 (에러가 아니라 '할 일'이다)
+    const [needsProfile, setNeedsProfile] = useState(false);
     // 성향은 사용자당 하나라 경로마다 반복하지 않고 목록 위에 한 번만 보여준다.
     const [preference, setPreference] = useState(null);
 
@@ -80,6 +82,18 @@ export default function S4_RouteResult() {
         let isActive = true;
 
         const fetchRoutes = async () => {
+            /*
+                보통은 S0 에서 갈라주므로 여기 오지 않는다. 다만 주소를 직접 치거나
+                저장소가 비워진 뒤 뒤로가기로 들어올 수 있어서, 그때 빨간 에러만
+                띄우지 않고 바로 입력 화면으로 갈 수 있게 한다.
+            */
+            if (!hasUsableProfile()) {
+                setIsLoading(false);
+                setNeedsProfile(true);
+                setRoutes([]);
+                return;
+            }
+            setNeedsProfile(false);
             setIsLoading(true);
             setErrorMessage('');
 
@@ -232,7 +246,27 @@ export default function S4_RouteResult() {
                     </div>
                 )}
 
-                {!isLoading && errorMessage && (
+                {needsProfile && (
+                    <div className="px-4 pb-4">
+                        <div className="bg-white rounded-2xl border border-indigo-200 px-4 py-5">
+                            <p className="font-bold text-gray-900 mb-1">기본 정보가 필요해요</p>
+                            <p className="text-xs text-gray-600 mb-4">
+                                나이·성별·차종·연식으로 운전 성향을 추론합니다. 한 번만 입력하면 돼요.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    navigate('/profile', { state: { profileRequired: true } })
+                                }
+                                className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold active:bg-indigo-700 transition-colors"
+                            >
+                                기본 정보 입력하기
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {!isLoading && !needsProfile && errorMessage && (
                     <div className="px-4 pb-4">
                         <div className="bg-white rounded-2xl border border-red-200 px-4 py-5">
                             <p className="font-bold text-red-500 mb-1">경로를 불러오지 못했습니다</p>

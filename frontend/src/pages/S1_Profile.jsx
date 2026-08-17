@@ -26,6 +26,12 @@ export default function S1() {
     const isFromMyPage =
         location.state?.fromMyPage || false;
 
+    // 프로필이 없어서 이 화면으로 보내진 경우(S0 시작하기 / S4 안내 배너)
+    const needsProfile =
+        location.state?.fromOnboarding ||
+        location.state?.profileRequired ||
+        false;
+
     // 동승자·짐은 여정마다 바뀌는 값이라
     // 홈(S2)에서 입력받는다.
     const [profile, setProfile] =
@@ -131,11 +137,20 @@ export default function S1() {
 
     return (
         <div className="p-6 bg-gray-50 min-h-screen pb-24">
-            <h1 className="text-2xl font-bold mb-8 mt-2">
+            <h1 className="text-2xl font-bold mb-2 mt-2">
                 {isFromMyPage
                     ? '프로필 수정'
                     : '기본 정보를 알려주세요'}
             </h1>
+
+            {/* 어디서 왔는지에 따라 왜 이 화면이 필요한지 알려 준다 */}
+            <p className="text-sm text-gray-500 font-medium mb-8 leading-relaxed">
+                {isFromMyPage
+                    ? '수정하면 다음 경로 추천부터 반영돼요.'
+                    : needsProfile
+                        ? '이 정보로 운전 성향을 추론해 경로를 고릅니다. 한 번만 입력하면 돼요.'
+                        : '나이·성별·차종·연식으로 운전 성향을 추론합니다.'}
+            </p>
 
             <div className="space-y-8">
 
