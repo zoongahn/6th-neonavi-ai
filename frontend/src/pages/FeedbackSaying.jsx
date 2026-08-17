@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
-export default function FeedbackLoading() {
+export default function FeedbackSaying() {
     const navigate = useNavigate();
+    const location = useLocation();
+
     const [quote, setQuote] = useState('');
 
     const quotes = [
@@ -15,35 +17,58 @@ export default function FeedbackLoading() {
     ];
 
     useEffect(() => {
-        const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+        const randomQuote =
+            quotes[Math.floor(Math.random() * quotes.length)];
+
         setQuote(randomQuote);
 
         const timer = setTimeout(() => {
-            navigate('/home', { replace: true }); // 2초 뒤 홈으로 전환
+            navigate('/home', {
+                replace: true,
+                state: location.state
+            });
         }, 2000);
 
         return () => clearTimeout(timer);
-    }, [navigate]);
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [navigate, location.state]);
 
     return (
         <div className="fixed inset-0 z-[999] flex flex-col items-center justify-center bg-indigo-600 text-white px-6 text-center animate-fade-in">
-            <div className="text-6xl mb-8 animate-bounce">🚘</div>
 
-            {/* 오직 명언만 보여주는 깔끔한 카드 영역 */}
+            <div className="text-6xl mb-8 animate-bounce">
+                🚘
+            </div>
+
             <div className="bg-indigo-700/50 p-8 rounded-3xl backdrop-blur-sm max-w-sm w-full shadow-lg border border-indigo-500/30">
-                <p className="text-xl font-bold leading-relaxed mb-4 break-keep">"{quote}"</p>
-                <p className="text-sm text-indigo-200 font-medium tracking-widest">- NeoNavi -</p>
+
+                <p className="text-xl font-bold leading-relaxed mb-4 break-keep">
+                    "{quote}"
+                </p>
+
+                <p className="text-sm text-indigo-200 font-medium tracking-widest">
+                    - NeoNavi -
+                </p>
+
             </div>
 
             <style>{`
                 @keyframes fade-in {
-                    from { opacity: 0; }
-                    to { opacity: 1; }
+                    from {
+                        opacity: 0;
+                    }
+
+                    to {
+                        opacity: 1;
+                    }
                 }
+
                 .animate-fade-in {
                     animation: fade-in 0.3s ease-out;
                 }
             `}</style>
+
         </div>
     );
 }

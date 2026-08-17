@@ -491,14 +491,14 @@ export default function S6_Feedback() {
             console.warn('주행 기록을 서버에 저장하지 못했습니다.', error);
         }
 
-        navigate('/home', {
+        navigate('/saying', {
             replace: true
         });
     };
 
     // 피드백 저장 없이 이동
     const handleSkipFeedback = () => {
-        navigate('/home', {
+        navigate('/saying', {
             replace: true
         });
     };
