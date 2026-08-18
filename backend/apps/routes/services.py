@@ -196,3 +196,26 @@ def recommend(payload: dict) -> dict:
         'preference': {**preference, 'unanimous': unanimous},
         'routes': routes,
     }
+
+############################################
+############### 추가 ########################
+
+from ai.xai_llm import generate_xai_reasons
+
+def explain_route_detail(payload: dict) -> dict:
+    """
+    특정 경로에 대한 LLM 맞춤형 분석(XAI) 결과 반환
+    FE에서 상세 페이지 진입 시 해당 경로의 프로필과 축(axes) 데이터 전송 
+    """
+    profile = payload.get('profile', {})
+    mode = payload.get('mode', 'comfort')
+    
+    # FE에서 넘겨준 선택된 경로의 특성 데이터
+    route_axes = payload.get('axes', {})
+    
+    try:
+        # LLM에게 텍스트 생성을 요청 (2~3초 소요)
+        reasons = generate_xai_reasons(profile, mode, route_axes)
+        return {"recommend_reasons": reasons}
+    except Exception as exc:
+        raise RecommendError(f'AI 상세 분석에 실패했습니다: {exc}') from exc

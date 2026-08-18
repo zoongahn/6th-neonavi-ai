@@ -88,7 +88,9 @@ export default function S4_RouteResult() {
                     fee: `${route.toll.toLocaleString()}원`,
                     // 이 경로를 1순위로 고르는 다른 성향들 (없으면 빈 배열)
                     preferredBy: route.preferred_by_labels || [],
-                    path: route.path || []
+                    path: route.path || [],
+
+                    axes: route.axes || {} //////추가됨
                 }));
 
                 setRoutes(list);
@@ -248,7 +250,14 @@ export default function S4_RouteResult() {
                                         className="flex-none text-xs font-bold text-white bg-indigo-600 px-3 py-1.5 rounded-lg shadow-sm active:bg-indigo-700 transition-colors"
                                         onClick={(event) => {
                                             event.stopPropagation();
-                                            navigate('/detail', { state: { route } });
+                                            navigate('/detail', {
+                                                state: {
+                                                    route: route,
+                                                    tripData: {
+                                                        ...tripData, mode: selectedMode
+                                                    }
+                                                }
+                                            });
                                         }}
                                     >
                                         상세
