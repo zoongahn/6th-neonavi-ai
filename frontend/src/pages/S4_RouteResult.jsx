@@ -216,6 +216,8 @@ export default function S4_RouteResult() {
                     // 이 경로를 1순위로 고르는 다른 성향들 (없으면 빈 배열)
                     preferredBy: route.preferred_by_labels || [],
                     path: route.path || [],
+
+                    axes: route.axes || {} //////추가됨
                     // 주행 화면(S5)이 쓰는 것 — 남은시간 환산에 숫자가 필요하고,
                     // steps 는 턴바이턴 안내다. 문자열('25분')만 넘기면 S5에서 못 쓴다.
                     durationMin: route.duration_min,
@@ -495,6 +497,14 @@ export default function S4_RouteResult() {
                                         className="flex-none text-xs font-bold text-white bg-indigo-600 px-3 py-1.5 rounded-lg shadow-sm active:bg-indigo-700 transition-colors"
                                         onClick={(event) => {
                                             event.stopPropagation();
+                                            navigate('/detail', {
+                                                state: {
+                                                    route: route,
+                                                    tripData: {
+                                                        ...tripData, mode: selectedMode
+                                                    }
+                                                }
+                                            });
 
                                             /*
                                              * 상세 페이지로 가기 직전
