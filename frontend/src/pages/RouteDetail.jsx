@@ -1,16 +1,66 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 export default function RouteDetail() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // 이전 페이지에서 넘겨준 경로 데이터 (없을 경우 기본 더미 데이터 사용)
-    const route = location.state?.route || {
+    // 이전 페이지(S4)에서 넘겨준 데이터
+    const { tripData, route } = location.state || {};
+
+    // 💡 방어 코드: 직접 URL을 치고 들어왔을 경우를 대비한 기본 더미 데이터
+    const displayRoute = route || {
         title: '추천 경로 A',
         time: '18분',
-        distance: '5.2km'
+        distance: '5.2km',
+        axes: {} // 기본 빈 객체 추가
     };
+
+    const [aiReasons, setAiReasons] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [errorMessage, setErrorMessage] = useState('');
+
+    useEffect(() => {
+        // 경로 데이터나 프로필이 없으면 더미 데이터 상태를 유지하거나 뒤로 보낼 수 있습니다.
+        // 현재는 더미 데이터를 렌더링하기 위해 뒤로 보내지는 않지만,
+        // 실제 API 호출 시 필수 데이터가 없다면 에러를 띄웁니다.
+        if (!route || !tripData) {
+            setErrorMessage('경로 데이터가 부족하여 AI 분석을 수행할 수 없습니다.');
+            setIsLoading(false);
+            return;
+        }
+
+        const fetchAiExplanation = async () => {
+            setIsLoading(true);
+            setErrorMessage('');
+            try {
+                // 🚀 백엔드 API 호출
+                const response = await fetch('/api/routes/explain/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        profile: tripData.profile,
+                        mode: tripData.mode,
+                        axes: displayRoute.axes
+                    }),
+                });
+
+                if (!response.ok) {
+                    throw new Error('AI 분석 데이터를 불러오지 못했습니다.');
+                }
+
+                const data = await response.json();
+                setAiReasons(data.recommend_reasons || []);
+            } catch (error) {
+                console.error("AI 분석 호출 에러:", error);
+                setErrorMessage(error.message);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchAiExplanation();
+    }, [route, tripData, displayRoute.axes]);
 
     return (
         <div className="bg-gray-50 min-h-[100dvh] flex flex-col pb-10">
@@ -29,25 +79,42 @@ export default function RouteDetail() {
                     </div>
                     <div>
                         <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md mb-1 inline-block">★ 추천 경로</span>
-                        <h2 className="text-xl font-extrabold text-gray-900">{route.title}</h2>
-                        <p className="text-sm text-gray-500 mt-1">🕒 예상 시간 {route.time} · 📏 {route.distance}</p>
+                        <h2 className="text-xl font-extrabold text-gray-900">{displayRoute.title}</h2>
+                        <p className="text-sm text-gray-500 mt-1">🕒 예상 시간 {displayRoute.time} · 📏 {displayRoute.distance}</p>
                     </div>
                 </div>
 
-                {/* 2. 이 경로를 추천하는 이유 (Image 1 파트) */}
+                {/* 2. 🚀 AI 맞춤 추천 이유 (API 연동) */}
                 <div>
                     <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-1">
                         <span className="text-indigo-500">✨</span> 이 경로를 추천하는 이유
                     </h3>
+
                     <div className="space-y-3">
-                        {/* 이유 카드 리스트 */}
-                        {[
-                            { icon: '🚦', title: '신호등 수 매우 적음', desc: '불필요한 정차가 적어 편안하게 주행할 수 있어요.' },
-                            { icon: '⛰️', title: '경사 완만', desc: '급한 오르막·내리막이 적어 초보 운전자에게 부담이 적어요.' },
-                            { icon: '↪️', title: '급커브 적음', desc: '회전이 많은 구간이 적어 안정적으로 이동할 수 있어요.' },
-                            { icon: '🚘', title: '혼잡도 낮음', desc: '막히는 구간이 적어 예측 가능한 이동이 가능해요.' },
-                            { icon: '🛣️', title: '큰 도로 비율 높음', desc: '넓은 도로 위주로 안내해 더욱 안전하게 주행할 수 있어요.' }
-                        ].map((item, idx) => (
+                        {/* 🌀 로딩 스켈레톤 UI */}
+                        {isLoading && (
+                            <div className="space-y-3 animate-pulse">
+                                {[1, 2, 3].map((i) => (
+                                    <div key={i} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex gap-4 items-center">
+                                        <div className="w-12 h-12 bg-gray-200 rounded-full flex-none"></div>
+                                        <div className="flex-1 space-y-2 py-1">
+                                            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                                            <div className="h-3 bg-gray-200 rounded w-full"></div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* ❌ 에러 메시지 */}
+                        {!isLoading && errorMessage && (
+                            <div className="bg-red-50 text-red-600 p-4 rounded-xl border border-red-100 text-sm font-medium">
+                                {errorMessage}
+                            </div>
+                        )}
+
+                        {/* ✅ API 로딩 완료 후 실제 데이터 렌더링 */}
+                        {!isLoading && !errorMessage && aiReasons.length > 0 && aiReasons.map((item, idx) => (
                             <div key={idx} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex gap-4 items-center">
                                 <div className="text-3xl bg-gray-50 w-12 h-12 flex items-center justify-center rounded-full flex-none">{item.icon}</div>
                                 <div>
@@ -56,17 +123,23 @@ export default function RouteDetail() {
                                 </div>
                             </div>
                         ))}
+
+                        {/* 예외: 데이터가 비어있을 경우 */}
+                        {!isLoading && !errorMessage && aiReasons.length === 0 && (
+                            <div className="text-center py-6 text-gray-400 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                                분석 결과를 가져올 수 없습니다.
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {/* 3. AI 경로 분석 (Image 2 파트) */}
+                {/* 3. AI 경로 분석 (진행바 및 원본 데이터 유지) */}
                 <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
                     <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-1">
                         <span className="text-indigo-500">📈</span> AI 경로 분석
                     </h3>
 
                     <div className="flex items-center gap-6 mb-6">
-
                         {/* 진행바(Progress bar) 영역 */}
                         <div className="flex-1 space-y-3">
                             {[
