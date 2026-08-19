@@ -64,13 +64,17 @@ def _fmt(p) -> str:
 # ── 호출 ───────────────────────────────────────────────────────────
 
 def _call(origin, dest, priority="RECOMMEND", waypoint=None, timeout=10,
-          departure_time=None) -> list[dict]:
+          departure_time=None, errors=None) -> list[dict]:
     """카카오 1회 호출 → result_code==0 인 raw route dict 리스트.
 
     departure_time(YYYYMMDDHHMM)을 주면 미래 운행 정보 엔드포인트로 보낸다.
     ⚠️ 과거 시각이면 카카오가 **에러 없이 현재 기준으로 답한다**. 기능이 도는 것처럼
     보이면서 결과만 틀리므로, 미래인지 확인한 값만 넘길 것
     (backend apps/routes/services.parse_departure_time 이 담당).
+
+    errors: 리스트를 주면 실패 사유 (result_code, result_msg) 를 담아준다.
+    실패를 조용히 버리면 호출자가 '경로 없음' 말고는 아무것도 말해줄 수 없다.
+    예: 산 정상을 출발지로 찍으면 102 '시작 지점 주변의 도로를 탐색할 수 없음'.
     """
     params = {
         "origin": _fmt(origin),
@@ -87,23 +91,43 @@ def _call(origin, dest, priority="RECOMMEND", waypoint=None, timeout=10,
         params["departure_time"] = departure_time
     try:
         resp = requests.get(url, headers=_headers(), params=params, timeout=timeout)
-    except requests.RequestException:
+    except requests.RequestException as exc:
+        if errors is not None:
+            errors.append((None, f"길찾기 서버에 연결하지 못했습니다: {exc}"))
         return []
     if resp.status_code != 200:
+        if errors is not None:
+            errors.append((resp.status_code, f"길찾기 응답 오류 (HTTP {resp.status_code})"))
         return []
-    return [r for r in resp.json().get("routes", []) if r.get("result_code") == 0]
+
+    ok = []
+    for r in resp.json().get("routes", []):
+        code = r.get("result_code")
+        if code == 0:
+            ok.append(r)
+        elif errors is not None:
+            errors.append((code, r.get("result_msg", "")))
+    return ok
 
 
 # ── 파싱 & 중복제거 ────────────────────────────────────────────────
 
 def _parse(route: dict, rid: str) -> CandidateRoute:
-    """raw route dict → CandidateRoute."""
+    """raw route dict → CandidateRoute.
+
+    ⚠️ `guide.road_index` 는 **섹션 안에서 0부터 다시 시작한다.** 경유지를 넣어
+    부른 경로(우리 pool 확대 방식)는 섹션이 2개라, 그냥 이어붙이면 두 번째
+    섹션의 인덱스가 통째로 어긋난다. 여기서 폴리라인상 위치(`coord_index`)로
+    바꿔 두면 소비하는 쪽은 섹션 구조를 몰라도 된다.
+    """
     s = route.get("summary", {})
     coords: list[tuple[float, float]] = []
     roads: list[dict] = []
     guides: list[dict] = []
     for sec in route.get("sections", []):
+        starts: list[int] = []   # 이 섹션 road i 가 coords 어디서 시작하는지
         for road in sec.get("roads", []):
+            starts.append(len(coords))
             v = road.get("vertexes", [])
             for i in range(0, len(v) - 1, 2):
                 coords.append((v[i], v[i + 1]))
@@ -113,7 +137,12 @@ def _parse(route: dict, rid: str) -> CandidateRoute:
                 "traffic_speed": road.get("traffic_speed"),
                 "traffic_state": road.get("traffic_state"),
             })
-        guides.extend(sec.get("guides", []))
+        for g in sec.get("guides", []):
+            ri = g.get("road_index", -1)
+            guides.append({
+                **g,
+                "coord_index": starts[ri] if 0 <= ri < len(starts) else max(0, len(coords) - 1),
+            })
     return CandidateRoute(
         id=rid,
         coords=coords,
@@ -144,10 +173,13 @@ def fetch_pool(
     priorities=("RECOMMEND", "DISTANCE"),
     waypoint_fracs=(1 / 3, 1 / 2, 2 / 3),
     waypoint_mags=(0.012,),
-    dedupe_threshold: float = 0.8,
-    serve_detour: float = 1.5,
+    dedupe_threshold: float = 0.65,
+    serve_detour: float = 1.3,
+    serve_max_detour: float = 1.6,   # 최소 후보 수를 못 채울 때까지만 풀어 주는 절대 상한
+    serve_min: int = 3,              # 이보다 적으면 개인화가 성립하지 않는다
     serve_top: int = 5,
     departure_time=None,
+    errors=None,
 ) -> list[CandidateRoute]:
     """O-D → 중복 제거된 후보 경로 리스트.
 
@@ -155,6 +187,7 @@ def fetch_pool(
     mode='serve'   : best 시간의 serve_detour 배 이내, 시간 오름차순 top serve_top (서빙).
 
     departure_time : YYYYMMDDHHMM (미래). 주면 그 시각 기준 예상 소요시간으로 받는다.
+    errors         : 리스트를 주면 카카오가 돌려준 실패 사유를 담아준다(빈 결과 설명용).
 
     호출 수 = len(priorities) + len(fracs)*len(mags)*2 (경유지 ±).
     기본값 = 2 + 3*1*2 = 8회/O-D.
@@ -164,15 +197,20 @@ def fetch_pool(
 
     raw: list[dict] = []
     for p in priorities:
-        raw += _call((ox, oy), (dx, dy), priority=p, departure_time=departure_time)
+        raw += _call((ox, oy), (dx, dy), priority=p, departure_time=departure_time,
+                     errors=errors)
 
     # O-D 직선의 수직 단위벡터로 경유지 교란
     vx, vy = dx - ox, dy - oy
     length = math.hypot(vx, vy) or 1.0
     px, py = -vy / length, vx / length
+    # ⚠️ 교란 크기는 O-D 길이에 비례시킨다. 0.012도(≈1.3km) 고정이면 짧은 구간에서
+    #    이탈이 경로의 절반이 되어, 골목을 뱅뱅 도는 1.7배 우회 경로가 만들어진다.
+    #    (5.5km 구간에서 실제로 1.69배가 나왔다.)
     for frac in waypoint_fracs:
         bx, by = ox + vx * frac, oy + vy * frac
-        for mag in waypoint_mags:
+        for mag0 in waypoint_mags:
+            mag = min(mag0, length * 0.12)
             for sgn in (1, -1):
                 wp = (bx + px * mag * sgn, by + py * mag * sgn)
                 raw += _call((ox, oy), (dx, dy), priority="RECOMMEND", waypoint=wp,
@@ -192,10 +230,26 @@ def fetch_pool(
         cr.id = f"route_{i}"
 
     if mode == "serve" and distinct:
-        best = min(cr.duration_min for cr in distinct)
-        distinct = [cr for cr in distinct if cr.duration_min <= best * serve_detour]
-        distinct.sort(key=lambda cr: cr.duration_min)
-        distinct = distinct[:serve_top]
+        # 걸러내고 자르는 기준은 **거리**다. 소요시간은 실시간 교통으로 분 단위로
+        # 흔들려서(같은 경로가 24.6→25.4분), 그걸로 경계를 자르면 5·6위가 매 요청
+        # 뒤바뀐다. 후보 하나만 들락거려도 상대 정규화 때문에 전원 점수가 다시
+        # 계산돼 추천이 뒤집힌다. 거리는 같은 경로면 안 변한다.
+        #
+        # ⚠️ 상한을 고정으로 걸면 도로망이 성긴 구간에서 후보가 통째로 날아간다.
+        #    의정부역→여의도역(30km)의 우회율 분포가
+        #      [1.0, 1.35, 1.37, 1.37, 1.4, 1.41, 1.55, 1.61, 1.7]
+        #    라서 1.3 상한이면 **후보가 1개만 남는다** = 개인화가 0이 된다.
+        #    그래서 최소 후보 수를 못 채우면 절대 상한(serve_max_detour)까지
+        #    단계적으로 풀어 준다. 터무니없는 우회는 막되, 그것 때문에 선택지
+        #    자체가 사라지는 건 더 나쁘다.
+        best = min(cr.distance_km for cr in distinct)
+        kept = []
+        for cap in (serve_detour, 1.4, 1.5, serve_max_detour):
+            kept = [cr for cr in distinct if cr.distance_km <= best * cap]
+            if len(kept) >= serve_min or cap >= serve_max_detour:
+                break
+        kept.sort(key=lambda cr: cr.distance_km)
+        distinct = kept[:serve_top]
 
     return distinct
 

@@ -16,10 +16,18 @@ HIGHER_BETTER = {'avg_speed', 'speed_limit', 'road_type'}   # ↑ 특성
 
 # 각 성향 축의 구성 특성 (관련 특성 만족도 평균). 계약.md §2 참조. safety 삭제(2026-07-18).
 # sports=감속회피/주행속력, comfort=완만·대로, fuel=비용최소.
+#
+# duration_min 추가(2026-08-15, 층2 설문 근거): 원래 '빠른 도착은 지도 API가 보장하니
+# 성향 축에서 뺀다'고 봤는데, 설문 48명에서 소요시간이 선택을 가르는 3대 요인이었다
+# (계수 -2.12, road_type·toll 다음). 오래 걸리는 길은 성향과 무관하게 기피되므로
+# 세 축에 모두 넣는다 — 빠른 주행(sports)·피로(comfort)·시간비용(fuel).
+# 근거·측정: docs/층2_검증결과.md
 AXIS_FEATURES = {
-    'sports':  ('avg_speed', 'speed_limit', 'road_type', 'turn_count', 'congestion', 'signal_count'),
-    'comfort': ('curvature', 'slope', 'turn_count', 'congestion', 'road_type'),
-    'fuel':    ('fuel_cost', 'distance_km', 'toll'),
+    'sports':  ('avg_speed', 'speed_limit', 'road_type', 'turn_count', 'congestion',
+                'signal_count', 'duration_min'),
+    'comfort': ('curvature', 'slope', 'turn_count', 'congestion', 'road_type',
+                'duration_min'),
+    'fuel':    ('fuel_cost', 'distance_km', 'toll', 'duration_min'),
 }
 
 # 카카오 traffic_state → 정체 심각도(높을수록 막힘). 0/None=정보없음 → 평균에서 제외.
@@ -52,13 +60,18 @@ def avg_speed_kmh(distance_km: float, duration_min: float) -> float:
 
 
 def _turn_density(route, dist_km: float) -> float:
-    """회전·교차로 스텝 밀도(개/km). 출발(type 100)·목적(101)은 제외.
+    """회전·교차로 스텝 밀도(개/km). 출발(100)·목적(101)·**경유지(1000)** 제외.
 
     (guide type 코드 의미표 확정 전 프록시: 끝점 제외 스텝 수. 신호등 대체 신호이기도 함)
+
+    ⚠️ 1000(경유지)은 **우리가 pool 을 넓히려고 넣은 가짜 경유지**가 만든 스텝이다.
+    실제 회전이 아닌데 경유지 1개당 2개(섹션 닫힘+열림)가 잡혀, 교란으로 만든
+    후보만 turn_count 가 부풀어 오른다. turn_count 는 sports·comfort 축에
+    들어가므로 이건 "대안 경로일수록 불리"라는 계통 편향이 된다.
     """
     guides = _get(route, 'guides', []) or []
     turns = sum(1 for g in guides
-                if isinstance(g, dict) and g.get('type') not in (100, 101))
+                if isinstance(g, dict) and g.get('type') not in (100, 101, 1000))
     return turns / dist_km if dist_km > 0 else 0.0
 
 
@@ -70,6 +83,11 @@ def build_feature_vector(route, enrich: bool = False) -> dict:
       - slope: elevation.route_slope (Open Topo Data/로컬 DEM)
       - signal_count·road_type·speed_limit: road.get_index().route_features (공공데이터 공간조인)
     enrich=False(기본)면 외부 특성은 0.0 placeholder — 테스트·합성 데이터에서 무거운 의존 회피.
+
+    ⚠️ route 가 FEATURE_NAMES 키를 이미 갖고 있으면(저장된 parquet 행, 설문처럼 서술로
+    주어진 가상 경로) **그 값을 그대로 쓴다**. 좌표에서 다시 계산해 덮어쓰면 이미 아는
+    값을 버리게 되고, enrich=False 일 때 slope·signal_count·road_type·speed_limit 이
+    통째로 0 이 되어 해당 축이 조용히 사라진다.
     """
     coords = _get(route, 'coords', []) or []
     dist = float(_get(route, 'distance_km', 0.0))
@@ -87,7 +105,7 @@ def build_feature_vector(route, enrich: bool = False) -> dict:
         from . import road
         pub = road.get_index().route_features(coords)
 
-    return {
+    computed = {
         'distance_km':  dist,
         'duration_min': dur,
         'avg_speed':    avg_speed_kmh(dist, dur),
@@ -101,6 +119,14 @@ def build_feature_vector(route, enrich: bool = False) -> dict:
         'road_type':    float(pub['road_type']),
         'speed_limit':  float(pub['speed_limit']),
     }
+
+    # 이미 아는 값이 route 에 실려 있으면 재계산분을 덮지 않는다.
+    if isinstance(route, dict):
+        for name in FEATURE_NAMES:
+            given = route.get(name)
+            if given is not None:
+                computed[name] = float(given)
+    return computed
 
 
 def normalize(vectors: list) -> list:

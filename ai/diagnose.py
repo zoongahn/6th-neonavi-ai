@@ -30,12 +30,20 @@ _DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 MODES = ('sports', 'comfort', 'eco')
 
 # 서빙과 동일한 후보 선별(kakao.fetch_pool mode='serve')
-SERVE_DETOUR = 1.5
+# ⚠️ kakao.py 의 serve 필터를 바꾸면 여기도 같이 바꿔야 한다. 안 그러면 이 진단이
+#    "우리가 실제로 서빙하는 후보집합"을 더는 재현하지 못한다.
+SERVE_DETOUR = 1.3
+SERVE_MAX_DETOUR = 1.6
+SERVE_MIN = 3
 SERVE_TOP = 5
+SERVE_KEY = 'distance_km'   # 소요시간은 교통으로 흔들려 경계가 매 요청 뒤바뀐다
 
 
-def load_candidate_sets(routes_path=None, min_candidates=3) -> list:
+def load_candidate_sets(routes_path=None, min_candidates=3,
+                        detour=None, key=None) -> list:
     """routes.parquet → O-D별 serve 후보 리스트. 서빙 입력 분포를 그대로 재현한다."""
+    detour = SERVE_DETOUR if detour is None else detour
+    key = SERVE_KEY if key is None else key
     routes_path = routes_path or os.path.join(_DATA_DIR, 'routes.parquet')
     groups = collections.defaultdict(list)
     for row in pq.read_table(routes_path).to_pylist():
@@ -47,9 +55,14 @@ def load_candidate_sets(routes_path=None, min_candidates=3) -> list:
     sets = []
     for od in sorted(groups):
         cands = groups[od]
-        best = min(c['duration_min'] for c in cands)
-        kept = [c for c in cands if c['duration_min'] <= best * SERVE_DETOUR]
-        kept.sort(key=lambda c: c['duration_min'])
+        # kakao.fetch_pool(mode='serve') 과 동일: 최소 후보 수를 못 채우면 단계적 완화
+        best = min(c[key] for c in cands)
+        kept = []
+        for cap in (detour, 1.4, 1.5, SERVE_MAX_DETOUR):
+            kept = [c for c in cands if c[key] <= best * cap]
+            if len(kept) >= SERVE_MIN or cap >= SERVE_MAX_DETOUR:
+                break
+        kept.sort(key=lambda c: c[key])
         kept = kept[:SERVE_TOP]
         if len(kept) >= min_candidates:
             sets.append(kept)
@@ -67,11 +80,17 @@ def _axes_pairs(rows) -> float:
     return statistics.mean(vals) if vals else float('nan')
 
 
-def _mode_winner(axis_vals) -> dict:
-    """성향축 만족도 → 모드별 1순위 인덱스(규칙 가중치 MODE_PRESETS 기준)."""
+def _mode_winner(axis_vals, weights=None) -> dict:
+    """성향축 만족도 → 모드별 1순위 인덱스.
+
+    ⚠️ 기본값(MODE_PRESETS)은 **규칙 스코어러 기준**이다. 서빙(model_a)은
+    대표 프로필을 User Tower 에 통과시킨 가중치를 쓰므로, 모델 쪽을 잴 때는
+    `weights` 로 그걸 넘겨야 한다. 안 넘기면 서빙과 다른 걸 재게 된다
+    (실제로 그 차이가 49.5% vs 63.7% 였다).
+    """
     out = {}
     for mode in MODES:
-        w = MODE_PRESETS[mode]
+        w = (weights or MODE_PRESETS)[mode]
         out[mode] = max(range(len(axis_vals)),
                         key=lambda i: sum(w.get(a, 0.0) * axis_vals[i][a] for a in PREFERENCE_AXES))
     return out
@@ -93,6 +112,10 @@ def diagnose(ckpt_path=None, routes_path=None, verbose=True) -> dict:
     model_rows, rule_rows = [], []
     split_model = split_rule = has_dom = 0
 
+    # 서빙이 실제로 쓰는 모드 가중치(대표 프로필 → User Tower). 규칙 프리셋이 아니다.
+    serve_w = {m: model_a.mode_weights('eco' if m == 'eco' else m, model=handle)
+               for m in MODES}
+
     for cands in sets:
         norms = vectorize.normalize([vectorize.build_feature_vector(c) for c in cands])
         rule_ax = [vectorize.project_to_axes(n) for n in norms]
@@ -102,7 +125,7 @@ def diagnose(ckpt_path=None, routes_path=None, verbose=True) -> dict:
 
         model_rows += model_ax
         rule_rows += rule_ax
-        split_model += len(set(_mode_winner(model_ax).values())) > 1
+        split_model += len(set(_mode_winner(model_ax, serve_w).values())) > 1
         split_rule += len(set(_mode_winner(rule_ax).values())) > 1
         has_dom += any(all(_dominates(rule_ax[i], rule_ax[j])
                            for j in range(len(cands)) if j != i)

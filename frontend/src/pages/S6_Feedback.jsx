@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import { saveTrip, saveFeedback } from '../api/naviApi';
 import { readProfile } from '../utils/profileStorage';
+import { readTrip } from '../utils/tripStorage';
 
 const HISTORY_STORAGE_KEY = 'neonaviDriveHistories';
 
@@ -116,7 +117,20 @@ const getRecentTrip = (locationState) => {
         return stateTrip;
     }
 
-    // localStorage에 저장된 최근 경로 확인
+    /*
+        새로고침 등으로 location.state 가 날아간 경우.
+
+        ⚠️ 먼저 sessionStorage 의 진행 중 여정을 본다. 아래 localStorage 키에는
+        S2가 저장한 **출발·도착 지명밖에 없어서**, 그쪽으로 떨어지면 경로·모드와
+        층3 지표(recommendedRouteId·selectedRouteId·preferenceAxis)가 통째로
+        사라진 채 화면은 멀쩡히 그려진다.
+    */
+    const activeTrip = readTrip();
+    if (activeTrip && Object.keys(activeTrip).length > 0) {
+        return activeTrip;
+    }
+
+    // 그래도 없으면 최근 검색 기록(지명만)
     for (const key of RECENT_TRIP_STORAGE_KEYS) {
         const saved = localStorage.getItem(key);
 
@@ -491,14 +505,14 @@ export default function S6_Feedback() {
             console.warn('주행 기록을 서버에 저장하지 못했습니다.', error);
         }
 
-        navigate('/home', {
+        navigate('/saying', {
             replace: true
         });
     };
 
     // 피드백 저장 없이 이동
     const handleSkipFeedback = () => {
-        navigate('/home', {
+        navigate('/saying', {
             replace: true
         });
     };
