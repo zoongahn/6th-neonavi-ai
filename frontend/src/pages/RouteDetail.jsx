@@ -1,11 +1,44 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+
+/*
+    성향 축은 sports/comfort/fuel 셋뿐이다. '안전성'은 2026-07-18 계약 개정에서
+    삭제되고 comfort 로 흡수됐다 — 화면에 남겨 두면 없는 축의 점수를 보여주게 된다.
+*/
+const AXIS_LABEL = {
+    sports: '🏁 주행 다이내믹',
+    comfort: '💺 편안함',
+    fuel: '🍃 경제성'
+};
+
+/*
+    '원본 데이터' 표에 쓸 특성. 값이 없으면(공공데이터 미커버 구간 등) 행을 뺀다.
+    없는 값을 0으로 채워 보여주면 "신호등 0개"라는 거짓말이 된다.
+    [키, 표시명, 포맷터]
+*/
+const RAW_ROWS = [
+    ['signal_count', '신호등 밀도', (v) => `${v.toFixed(1)}개/km`],
+    // slope 는 무단위 grade (0.05 = 5%) — elevation.route_slope
+    ['slope', '평균 경사도', (v) => `${(v * 100).toFixed(1)}%`],
+    // turn_count 는 '횟수'가 아니라 km당 밀도다 (vectorize._turn_density)
+    ['turn_count', '회전 밀도', (v) => `${v.toFixed(1)}회/km`],
+    ['curvature', '곡률 지수', (v) => v.toFixed(4)],
+    ['congestion', '혼잡도', (v) => `${(v * 100).toFixed(0)}%`],
+    ['road_type', '큰 도로 비율', (v) => `${(v * 100).toFixed(0)}%`],
+    ['speed_limit', '평균 제한속도', (v) => `${Math.round(v)}km/h`],
+    ['avg_speed', '평균 주행속력', (v) => `${Math.round(v)}km/h`],
+    ['fuel_cost', '예상 연료', (v) => `${v.toFixed(2)}L`],
+    ['toll', '통행료', (v) => (v > 0 ? `${Math.round(v).toLocaleString()}원` : '없음')],
+    ['distance_km', '총 거리', (v) => `${v.toFixed(1)}km`],
+    ['duration_min', '예상 시간', (v) => `${Math.round(v)}분`]
+];
+
+// 0 이 '공백'이 아니라 실제 측정값인 특성 — 0 이어도 표에 남긴다.
+const ZERO_IS_REAL = new Set(['toll']);
 
 export default function RouteDetail() {
     const navigate = useNavigate();
     const location = useLocation();
-
-    console.log("S4에서 넘어온 데이터: ", location.state);
 
     // 이전 페이지(S4)에서 넘겨준 데이터
     const { tripData, route, axes } = location.state || {};
@@ -18,16 +51,79 @@ export default function RouteDetail() {
         axes: {} // 기본 빈 객체 추가
     };
 
-    const [aiReasons, setAiReasons] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
+    /*
+        추천 근거는 **추천 계산에서 이미 나온다**(backend recommend → recommend_reasons).
+        같은 후보집합·같은 w·f 로 만들어지므로 목록의 배지와 상세의 근거가
+        서로 다른 말을 하지 않고, 상세를 열 때 기다릴 것도 없다.
+
+        LLM 호출(/api/routes/explain/)은 그 값이 없을 때만 쓰는 폴백이다.
+        (구버전 백엔드에 붙었거나 응답이 비어 온 경우)
+    */
+    const localReasons = route?.recommendReasons || route?.recommend_reasons || [];
+    const hasLocalReasons = localReasons.length > 0;
+
+    /* ── 아래 세 블록은 예전엔 전부 하드코딩된 예시값이었다. ──────────────
+       숫자가 그럴듯해서 진짜 모델 출력처럼 보였고, 근거 카드와 서로 다른 말을
+       했다(카드엔 안 나오는 '신호등 7개'가 표에 있었다). 실값만 그린다. */
+    const axisStats = useMemo(() => {
+        const src = route?.axes || axes || {};
+        return Object.keys(AXIS_LABEL)
+            .filter((k) => typeof src[k] === 'number')
+            .map((k) => ({
+                label: AXIS_LABEL[k],
+                score: Math.round(src[k] * 100)
+            }));
+    }, [route, axes]);
+
+    // 매 렌더 새 객체를 만들면 아래 useMemo 가 무의미해진다(CRA 는 이 경고를
+    // CI 빌드에서 에러로 취급한다).
+    const rawFeatures = useMemo(() => route?.features || {}, [route]);
+    const peerFeatures = useMemo(
+        () => route?.featuresPeerAvg || route?.features_peer_avg || {},
+        [route]
+    );
+
+    /*
+        값이 후보 전체에서 0 이면 '측정된 0'이 아니라 **공백**일 가능성이 높다.
+        실제로 신호등 표준데이터는 경기도만 수집돼 있어 서울 경로는 전부 0 인데,
+        그대로 그리면 "신호등 0개/km"라는 사실과 다른 문장이 된다.
+    */
+    const shownKeys = useMemo(
+        () =>
+            RAW_ROWS.filter(([key]) => {
+                if (typeof rawFeatures[key] !== 'number') return false;
+                if (ZERO_IS_REAL.has(key)) return true;
+                const peer = peerFeatures[key];
+                const peerEmpty = typeof peer !== 'number' || peer === 0;
+                return !(rawFeatures[key] === 0 && peerEmpty);
+            }),
+        [rawFeatures, peerFeatures]
+    );
+
+    const rawRows = useMemo(
+        () =>
+            shownKeys.map(([key, label, fmt]) => [
+                label,
+                fmt(rawFeatures[key]),
+                typeof peerFeatures[key] === 'number' ? fmt(peerFeatures[key]) : '—'
+            ]),
+        [shownKeys, rawFeatures, peerFeatures]
+    );
+
+    const modelPills = useMemo(
+        () => shownKeys.map(([key]) => `${key} = ${rawFeatures[key]}`),
+        [shownKeys, rawFeatures]
+    );
+
+    const [aiReasons, setAiReasons] = useState(localReasons);
+    const [isLoading, setIsLoading] = useState(!hasLocalReasons);
     const [errorMessage, setErrorMessage] = useState('');
 
     useEffect(() => {
-        // 경로 데이터나 프로필이 없으면 더미 데이터 상태를 유지하거나 뒤로 보낼 수 있습니다.
-        // 현재는 더미 데이터를 렌더링하기 위해 뒤로 보내지는 않지만,
-        // 실제 API 호출 시 필수 데이터가 없다면 에러를 띄웁니다.
+        if (hasLocalReasons) return;      // 이미 근거가 있으면 호출하지 않는다
+
         if (!route || !tripData) {
-            setErrorMessage('경로 데이터가 부족하여 AI 분석을 수행할 수 없습니다.');
+            setErrorMessage('경로 데이터가 부족하여 추천 근거를 표시할 수 없습니다.');
             setIsLoading(false);
             return;
         }
@@ -62,7 +158,7 @@ export default function RouteDetail() {
         };
 
         fetchAiExplanation();
-    }, [route, tripData, axes, displayRoute.axes]);
+    }, [hasLocalReasons, route, tripData, axes, displayRoute.axes]);
 
     return (
         <div className="bg-gray-50 min-h-[100dvh] flex flex-col pb-10">
@@ -156,14 +252,11 @@ export default function RouteDetail() {
                     </h3>
 
                     <div className="flex items-center gap-6 mb-6">
-                        {/* 진행바(Progress bar) 영역 */}
+                        {/* 진행바 — 모델이 낸 축 만족도 f (0~1). 지어낸 값이 아니다.
+                            축은 sports/comfort/fuel 셋뿐이다('안전성'은 2026-07-18
+                            계약에서 삭제되고 comfort 로 흡수됐다). */}
                         <div className="flex-1 space-y-3">
-                            {[
-                                { label: '🛡️ 안전성', score: 91 },
-                                { label: '💺 승차감', score: 84 },
-                                { label: '🍃 연비', score: 82 },
-                                { label: '🚗 주행 편의성', score: 89 }
-                            ].map((stat, idx) => (
+                            {axisStats.map((stat, idx) => (
                                 <div key={idx} className="flex items-center justify-between gap-2">
                                     <span className="text-xs font-bold text-gray-600 w-20">{stat.label}</span>
                                     <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -189,15 +282,7 @@ export default function RouteDetail() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
-                                {[
-                                    ['신호등 수', '7개', '16개'],
-                                    ['평균 경사도', '1.8%', '3.6%'],
-                                    ['회전 횟수', '9회', '17회'],
-                                    ['곡률 지수', '0.021', '0.046'],
-                                    ['혼잡도', '18%', '37%'],
-                                    ['큰 도로 비율', '72%', '48%'],
-                                    ['총 거리', '5.2km', '4.9km']
-                                ].map((row, idx) => (
+                                {rawRows.map((row, idx) => (
                                     <tr key={idx} className="text-gray-700">
                                         <td className="py-2.5 text-gray-600">{row[0]}</td>
                                         <td className="py-2.5 text-center font-bold text-indigo-600">{row[1]}</td>
@@ -214,11 +299,7 @@ export default function RouteDetail() {
                             <span className="text-indigo-500">⚙️</span> 모델 입력 지표
                         </h4>
                         <div className="flex flex-wrap gap-2">
-                            {[
-                                'signal_count = 7', 'slope = 1.8%', 'turn_count = 9',
-                                'curvature = 0.021', 'congestion = 18%', 'wide_road_ratio = 72%',
-                                'distance_km = 5.2', 'duration_min = 18'
-                            ].map((tag, idx) => (
+                            {modelPills.map((tag, idx) => (
                                 <span key={idx} className="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl text-xs font-mono font-bold">
                                     {tag}
                                 </span>

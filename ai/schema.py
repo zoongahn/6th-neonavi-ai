@@ -76,3 +76,9 @@ class Recommendation:
     # 후보집합 내 상대 비교로 뽑은 근거 조각. reason 은 이걸 이어붙인 문장이다.
     # 화면이 칩/뱃지로 따로 렌더할 수 있게 조각 상태로도 남긴다.
     highlights: list[str] = field(default_factory=list)
+    # 상세 화면용 근거 카드 [{icon, title, desc}, ...] — recommender/reasons.py
+    reasons: list[dict] = field(default_factory=list)
+    # 상세 화면 '원본 데이터'용 — 이 경로의 원시 특성과 나머지 후보 평균.
+    # 화면이 수치를 지어내지 않으려면 실값이 같이 내려가야 한다.
+    raw_features: dict = field(default_factory=dict)
+    peer_features: dict = field(default_factory=dict)
