@@ -13,3 +13,9 @@ pyarrow>=15.0       # 학습 데이터 포맷(공용 유틸)
 pyshp>=2.3          # 노드링크 shapefile (road_type·speed_limit)
 shapely>=2.0        # 공간 연산(STRtree)
 pyproj>=3.6         # 좌표계 변환 (WGS84 ↔ EPSG:5186)
+
+# ── XAI 설명 생성(LLM) ──
+# services.explain_route_detail 이 ai.xai_llm 을 import 하고, 그 모듈이
+# 모듈 최상위에서 gradio_client 를 부른다. 없으면 routes 앱 자체가
+# import 에 실패해 /api/routes/* 전부가 죽는다.
+gradio_client>=1.0
