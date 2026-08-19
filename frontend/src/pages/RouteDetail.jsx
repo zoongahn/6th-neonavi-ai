@@ -5,8 +5,10 @@ export default function RouteDetail() {
     const navigate = useNavigate();
     const location = useLocation();
 
+    console.log("S4에서 넘어온 데이터: ", location.state);
+
     // 이전 페이지(S4)에서 넘겨준 데이터
-    const { tripData, route } = location.state || {};
+    const { tripData, route, axes } = location.state || {};
 
     // 💡 방어 코드: 직접 URL을 치고 들어왔을 경우를 대비한 기본 더미 데이터
     const displayRoute = route || {
@@ -35,13 +37,13 @@ export default function RouteDetail() {
             setErrorMessage('');
             try {
                 // 🚀 백엔드 API 호출
-                const response = await fetch('/api/routes/explain/', {
+                const response = await fetch('http://127.0.0.1:8000/api/routes/explain/', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         profile: tripData.profile,
                         mode: tripData.mode,
-                        axes: displayRoute.axes
+                        axes: axes || displayRoute.axes || {}
                     }),
                 });
 
@@ -60,7 +62,7 @@ export default function RouteDetail() {
         };
 
         fetchAiExplanation();
-    }, [route, tripData, displayRoute.axes]);
+    }, [route, tripData, axes, displayRoute.axes]);
 
     return (
         <div className="bg-gray-50 min-h-[100dvh] flex flex-col pb-10">
@@ -114,15 +116,29 @@ export default function RouteDetail() {
                         )}
 
                         {/* ✅ API 로딩 완료 후 실제 데이터 렌더링 */}
-                        {!isLoading && !errorMessage && aiReasons.length > 0 && aiReasons.map((item, idx) => (
-                            <div key={idx} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex gap-4 items-center">
-                                <div className="text-3xl bg-gray-50 w-12 h-12 flex items-center justify-center rounded-full flex-none">{item.icon}</div>
-                                <div>
-                                    <h4 className="font-bold text-gray-900">{item.title}</h4>
-                                    <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{item.desc}</p>
+                        {!isLoading && !errorMessage && aiReasons.length > 0 && aiReasons.map((item, idx) => {
+                            let displayIcon = "✨";
+                            const iconStr = String(item.icon || "");
+
+                            if (iconStr.includes("snowflake") || iconStr.includes("저감")) displayIcon = "❄️";
+                            else if (iconStr.includes("money") || iconStr.includes("bill") || iconStr.includes("경제성")) displayIcon = "💰";
+                            else if (iconStr.includes("shield") || iconStr.includes("안전")) displayIcon = "🛡️";
+                            else if (iconStr.includes("car") || iconStr.includes("주행")) displayIcon = "🚗";
+                            else if (iconStr.length <= 2) displayIcon = iconStr; // 이미 순수 이모지라면 그대로 사용
+
+                            return (
+                                <div key={idx} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex gap-4 items-center">
+                                    <div className="text-3xl bg-gray-50 w-12 h-12 flex items-center justify-center rounded-full flex-none">
+                                        {displayIcon}
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-gray-900">{item.title}</h4>
+                                        <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{item.desc}</p>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+
+                        })}
 
                         {/* 예외: 데이터가 비어있을 경우 */}
                         {!isLoading && !errorMessage && aiReasons.length === 0 && (
