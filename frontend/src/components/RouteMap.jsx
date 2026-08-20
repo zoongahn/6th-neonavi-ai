@@ -1,9 +1,77 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 import { loadKakaoMap } from '../utils/kakaoMap';
+import { cumulative, haversine, pointAtDistance } from '../utils/geo';
 
 const SELECTED_COLOR = '#4f46e5';   // 선택된 경로 (indigo-600)
 const OTHER_COLOR = '#9ca3af';      // 나머지 경로 (gray-400)
+
+// 진행방향 화살표를 선 안쪽에 옅게 깐다(네이버지도 방식).
+// 간격은 **화면 픽셀 기준**으로 잡는다 — 미터로 고정하면 축소했을 때
+// 화살표가 뭉개지고 확대하면 몇 개 안 남는다.
+const ARROW_GAP_PX = 44;
+const ARROW_MAX = 60;               // 오버레이가 많아지면 팬·줌이 눈에 띄게 무거워진다
+const ARROW_EDGE_M = 40;            // 출발·도착 핀과 겹치지 않게 양 끝은 비운다
+
+/** 지도의 현재 축척(m/px). level 산식 대신 실제 bounds 로 잰다. */
+function metersPerPixel(kakao, map, container) {
+    const width = container?.clientWidth || 0;
+    if (!width) return 0;
+    const bounds = map.getBounds();
+    const sw = bounds.getSouthWest();
+    const ne = bounds.getNorthEast();
+    const spanM = haversine(
+        { lng: sw.getLng(), lat: sw.getLat() },
+        { lng: ne.getLng(), lat: sw.getLat() }
+    );
+    return spanM / width;
+}
+
+function arrowOverlay(kakao, position, heading) {
+    const el = document.createElement('div');
+    el.style.cssText = 'width:10px;height:10px;pointer-events:none;' +
+        `transform:rotate(${heading}deg)`;
+    // 위쪽(북)을 향하는 쐐기. pointAtDistance 의 heading 이 정북 기준이라
+    // 그대로 회전시키면 진행방향을 가리킨다.
+    el.innerHTML =
+        '<svg viewBox="0 0 24 24" width="10" height="10">' +
+        '<path d="M5 15 L12 8 L19 15" fill="none" stroke="#ffffff" ' +
+        'stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" ' +
+        'opacity="0.9"/></svg>';
+    return new kakao.maps.CustomOverlay({
+        position,
+        content: el,
+        xAnchor: 0.5,
+        yAnchor: 0.5,
+        zIndex: 11,          // 선(10) 위, 출발·도착 핀(20) 아래
+        clickable: false,    // 경로 선 클릭을 가로채면 안 된다
+    });
+}
+
+/** 출발/도착을 글자로 구분한다. 기본 마커는 둘이 똑같아 구분이 안 됐다. */
+function endpointOverlay(kakao, position, kind) {
+    const isStart = kind === 'start';
+    const el = document.createElement('div');
+    el.style.cssText = 'transform:translateY(-50%);pointer-events:none';
+    el.innerHTML =
+        `<div style="display:flex;align-items:center;gap:4px;padding:3px 8px 3px 4px;` +
+        `border-radius:9999px;background:${isStart ? '#111827' : '#4f46e5'};` +
+        `box-shadow:0 1px 4px rgba(0,0,0,.35);white-space:nowrap">` +
+        `<span style="width:14px;height:14px;border-radius:9999px;background:#fff;` +
+        `display:inline-flex;align-items:center;justify-content:center;` +
+        `font-size:9px;font-weight:800;color:${isStart ? '#111827' : '#4f46e5'}">` +
+        `${isStart ? '출' : '도'}</span>` +
+        `<span style="font-size:11px;font-weight:700;color:#fff">` +
+        `${isStart ? '출발' : '도착'}</span></div>`;
+    return new kakao.maps.CustomOverlay({
+        position,
+        content: el,
+        xAnchor: 0.5,
+        yAnchor: 1.15,       // 지점 바로 위에 뜨도록
+        zIndex: 20,
+        clickable: false,
+    });
+}
 
 /**
  * 추천 경로들을 지도에 그린다. 선택된 경로는 진하게, 나머지는 흐리게.
@@ -26,6 +94,7 @@ export default function RouteMap({
     const mapRef = useRef(null);
     const polylinesRef = useRef([]);
     const markersRef = useRef([]);
+    const arrowsRef = useRef([]);
     const [errorMessage, setErrorMessage] = useState('');
     // 지도는 비동기로 만들어지므로, 준비된 뒤에 경로를 그려야 한다.
     const [isMapReady, setIsMapReady] = useState(false);
@@ -81,7 +150,7 @@ export default function RouteMap({
             const isSelected = index === selectedId;
             const polyline = new kakao.maps.Polyline({
                 path,
-                strokeWeight: isSelected ? 6 : 4,
+                strokeWeight: isSelected ? 7 : 4,
                 strokeColor: isSelected ? SELECTED_COLOR : OTHER_COLOR,
                 strokeOpacity: isSelected ? 0.95 : 0.5,
                 strokeStyle: 'solid',
@@ -94,13 +163,16 @@ export default function RouteMap({
                 kakao.maps.event.addListener(polyline, 'click', () => onSelect(index));
             }
 
-            // 선택된 경로에만 출발·도착 표시
+            // 선택된 경로에만 출발·도착 표시. 기본 마커는 둘이 같은 그림이라
+            // 어느 쪽이 출발인지 알 수 없었다.
             if (isSelected) {
-                [path[0], path[path.length - 1]].forEach((position) => {
-                    const marker = new kakao.maps.Marker({ position });
-                    marker.setMap(map);
-                    markersRef.current.push(marker);
-                });
+                [['start', path[0]], ['end', path[path.length - 1]]].forEach(
+                    ([kind, position]) => {
+                        const overlay = endpointOverlay(kakao, position, kind);
+                        overlay.setMap(map);
+                        markersRef.current.push(overlay);
+                    }
+                );
             }
         });
 
@@ -108,6 +180,60 @@ export default function RouteMap({
             map.setBounds(bounds, padding.top, padding.right, padding.bottom, padding.left);
         }
     }, [isMapReady, routes, selectedId, onSelect, padding]);
+
+    /*
+        진행방향 화살표 — 선택된 경로 위에만.
+
+        축척이 바뀌면 화면상 간격이 달라지므로 'idle'(팬·줌이 멈춘 뒤)마다
+        다시 깐다. 매 프레임 다시 만들면 팬이 끊긴다.
+    */
+    useEffect(() => {
+        const kakao = window.kakao;
+        const map = mapRef.current;
+        if (!isMapReady || !kakao?.maps || !map) return undefined;
+
+        const selected = routes[selectedId];
+        const path = selected?.path || [];
+
+        const clear = () => {
+            arrowsRef.current.forEach((a) => a.setMap(null));
+            arrowsRef.current = [];
+        };
+
+        const draw = () => {
+            clear();
+            if (path.length < 2) return;
+
+            const mpp = metersPerPixel(kakao, map, containerRef.current);
+            if (!mpp) return;
+
+            const cum = cumulative(path);
+            const total = cum[cum.length - 1];
+            const usable = total - ARROW_EDGE_M * 2;
+            if (usable <= 0) return;
+
+            let gap = ARROW_GAP_PX * mpp;
+            if (usable / gap > ARROW_MAX) gap = usable / ARROW_MAX;
+
+            for (let d = ARROW_EDGE_M; d <= total - ARROW_EDGE_M; d += gap) {
+                const at = pointAtDistance(path, cum, d);
+                const overlay = arrowOverlay(
+                    kakao,
+                    new kakao.maps.LatLng(at.lat, at.lng),
+                    at.heading
+                );
+                overlay.setMap(map);
+                arrowsRef.current.push(overlay);
+            }
+        };
+
+        draw();
+        kakao.maps.event.addListener(map, 'idle', draw);
+        return () => {
+            kakao.maps.event.removeListener(map, 'idle', draw);
+            clear();
+        };
+    }, [isMapReady, routes, selectedId]);
 
     if (errorMessage) {
         return (
