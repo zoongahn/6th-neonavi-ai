@@ -9,8 +9,8 @@ const OTHER_COLOR = '#9ca3af';      // 나머지 경로 (gray-400)
 // 진행방향 화살표를 선 안쪽에 옅게 깐다(네이버지도 방식).
 // 간격은 **화면 픽셀 기준**으로 잡는다 — 미터로 고정하면 축소했을 때
 // 화살표가 뭉개지고 확대하면 몇 개 안 남는다.
-const ARROW_GAP_PX = 44;
-const ARROW_MAX = 60;               // 오버레이가 많아지면 팬·줌이 눈에 띄게 무거워진다
+const ARROW_GAP_PX = 28;
+const ARROW_MAX = 110;               // 오버레이가 많아지면 팬·줌이 눈에 띄게 무거워진다
 const ARROW_EDGE_M = 40;            // 출발·도착 핀과 겹치지 않게 양 끝은 비운다
 
 /** 지도의 현재 축척(m/px). level 산식 대신 실제 bounds 로 잰다. */
@@ -48,26 +48,27 @@ function arrowOverlay(kakao, position, heading) {
     });
 }
 
-/** 출발/도착을 글자로 구분한다. 기본 마커는 둘이 똑같아 구분이 안 됐다. */
+/**
+ * 출발/도착 핀. 기본 카카오 마커는 둘이 똑같은 그림이라 어느 쪽이 출발인지
+ * 알 수 없었다. 모양(핀)은 그대로 두고 **색으로만** 구분한다 — 글자를 넣으면
+ * 축소했을 때 두 배지가 서로 겹쳐 지도를 가린다.
+ */
 function endpointOverlay(kakao, position, kind) {
-    const isStart = kind === 'start';
+    const color = kind === 'start' ? '#111827' : '#4f46e5';   // 출발=먹, 도착=인디고
     const el = document.createElement('div');
-    el.style.cssText = 'transform:translateY(-50%);pointer-events:none';
+    el.style.cssText = 'width:26px;height:36px;pointer-events:none';
     el.innerHTML =
-        `<div style="display:flex;align-items:center;gap:4px;padding:3px 8px 3px 4px;` +
-        `border-radius:9999px;background:${isStart ? '#111827' : '#4f46e5'};` +
-        `box-shadow:0 1px 4px rgba(0,0,0,.35);white-space:nowrap">` +
-        `<span style="width:14px;height:14px;border-radius:9999px;background:#fff;` +
-        `display:inline-flex;align-items:center;justify-content:center;` +
-        `font-size:9px;font-weight:800;color:${isStart ? '#111827' : '#4f46e5'}">` +
-        `${isStart ? '출' : '도'}</span>` +
-        `<span style="font-size:11px;font-weight:700;color:#fff">` +
-        `${isStart ? '출발' : '도착'}</span></div>`;
+        '<svg viewBox="0 0 26 36" width="26" height="36">' +
+        `<path d="M13 35.5C13 35.5 24.5 21.5 24.5 13A11.5 11.5 0 1 0 1.5 13` +
+        `C1.5 21.5 13 35.5 13 35.5Z" fill="${color}" stroke="#ffffff" ` +
+        'stroke-width="2" stroke-linejoin="round"/>' +
+        '<circle cx="13" cy="13" r="4.4" fill="#ffffff"/>' +
+        '</svg>';
     return new kakao.maps.CustomOverlay({
         position,
         content: el,
         xAnchor: 0.5,
-        yAnchor: 1.15,       // 지점 바로 위에 뜨도록
+        yAnchor: 1,          // 핀 끝(뾰족한 아래)이 실제 지점에 닿도록
         zIndex: 20,
         clickable: false,
     });
