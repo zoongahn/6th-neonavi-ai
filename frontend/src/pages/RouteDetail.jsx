@@ -44,7 +44,24 @@ export default function RouteDetail() {
     const location = useLocation();
 
     // 이전 페이지(S4)에서 넘겨준 데이터
-    const { tripData, route, axes } = location.state || {};
+    const { tripData, route, axes, preference } = location.state || {};
+
+    /*
+        rank 0 = 추천 경로, 1.. = 대안. 제목 문자열('대안 경로 1')을 파싱하지 않고
+        숫자로 판단한다 — 문구가 바뀌면 조용히 깨지는 종류의 의존이라서.
+    */
+    const isTopRoute = (route?.rank ?? 0) === 0;
+    const routeCaption = isTopRoute
+        ? (preference?.label ? `${preference.label} 성향` : '성향 종합 1순위')
+        : `${route?.rank}번째 대안`;
+
+    const tollValue = route?.features?.toll;
+    const tollText =
+        typeof tollValue !== 'number'
+            ? ''
+            : tollValue > 0
+                ? `통행료 ${Math.round(tollValue).toLocaleString()}원`
+                : '통행료 없음';
 
     // 직접 URL 로 들어온 경우를 대비한 기본값
     const displayRoute = route || {
@@ -167,16 +184,30 @@ export default function RouteDetail() {
             </div>
 
             <div className="p-4 space-y-6">
-                {/* 1. 경로 요약 카드 */}
-                <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex items-center gap-4">
-                    <div className="w-14 h-14 bg-indigo-50 rounded-full flex items-center justify-center text-2xl">
-                        📍
+                {/* 1. 경로 요약 — 배지+정체 한 줄, 지표 한 줄.
+                    예전엔 왼쪽에 📍 아바타 원이 있었는데 모든 경로에서 같은 그림이라
+                    아무것도 구별하지 않으면서 글 폭만 좁혔다. 그리고 배지가
+                    '★ 추천 경로'로 **하드코딩**돼 있어 대안 경로 상세를 열어도
+                    추천 경로라고 표시됐다(제목은 '대안 경로 1'인데). rank 로 판단한다. */}
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span
+                            className={
+                                'text-xs font-bold px-2 py-1 rounded-md ' +
+                                (isTopRoute
+                                    ? 'text-indigo-600 bg-indigo-50'
+                                    : 'text-gray-500 bg-gray-100')
+                            }
+                        >
+                            {isTopRoute ? '추천 경로' : '대안'}
+                        </span>
+                        <span className="text-sm font-bold text-gray-700">{routeCaption}</span>
                     </div>
-                    <div>
-                        <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md mb-1 inline-block">★ 추천 경로</span>
-                        <h2 className="text-xl font-extrabold text-gray-900">{displayRoute.title}</h2>
-                        <p className="text-sm text-gray-500 mt-1">예상 시간 {displayRoute.time} · {displayRoute.distance}</p>
-                    </div>
+                    <p className="text-lg font-extrabold text-gray-900 mt-3">
+                        {[displayRoute.time, displayRoute.distance, tollText]
+                            .filter(Boolean)
+                            .join(' · ')}
+                    </p>
                 </div>
 
                 {/* 2. 추천 근거 — 추천 계산에서 함께 내려온다 */}

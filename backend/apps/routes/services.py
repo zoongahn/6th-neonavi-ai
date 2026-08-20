@@ -172,7 +172,7 @@ def _pool_failure_message(errors, origin_name, dest_name) -> str:
 
 def _title(rank: int, auto_recommend: bool, mode: str) -> str:
     if rank == 0:
-        return '✨ 너네비추천' if auto_recommend else f'✨ {MODE_LABEL.get(mode, mode)} 추천'
+        return '너네비추천' if auto_recommend else f'{MODE_LABEL.get(mode, mode)} 추천'
     return f'대안 경로 {rank}'
 
 
@@ -234,6 +234,8 @@ def recommend(payload: dict) -> dict:
         routes.append({
             'route_id': rec.route_id,
             'title': _title(rank, auto_recommend, mode),
+            # 0 = 추천 경로, 1.. = 대안. 화면이 제목 문자열을 파싱하지 않도록 숫자로 준다.
+            'rank': rank,
             'reason': rec.reason,
             'highlights': rec.highlights,   # 근거 조각(칩 렌더용)
             'score': rec.score,

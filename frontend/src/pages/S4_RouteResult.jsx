@@ -221,6 +221,8 @@ export default function S4_RouteResult() {
                     // 상세 페이지의 '추천하는 이유' 카드. 추천 계산에서 함께
                     // 나오므로 상세를 열 때 추가 호출·대기가 없다.
                     recommendReasons: route.recommend_reasons || [],
+                    // 0 = 추천 경로, 1.. = 대안. 상세가 제목 문자열을 파싱하지 않게.
+                    rank: typeof route.rank === 'number' ? route.rank : index,
                     // 상세의 '원본 데이터'·'모델 입력 지표' — 예시값이 아니라 실값
                     features: route.features || {},
                     featuresPeerAvg: route.features_peer_avg || {},
@@ -544,6 +546,8 @@ export default function S4_RouteResult() {
                                                 {
                                                     state: {
                                                         route,
+                                                        // 상세 상단에 '무슨 성향으로 고른 경로인지' 를 쓴다
+                                                        preference,
                                                         tripData: {
                                                             ...tripData,
                                                             mode: selectedMode,
