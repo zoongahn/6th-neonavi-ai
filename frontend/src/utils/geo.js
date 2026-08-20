@@ -61,7 +61,10 @@ function toMeters(point, refLat) {
  */
 export function snapToPath(path, cum, point, fromIndex = 0, window = 60) {
     if (path.length < 2) {
-        return { index: 0, distAlong: 0, offsetM: 0, lng: point.lng, lat: point.lat };
+        return {
+            index: 0, distAlong: 0, offsetM: 0,
+            lng: point.lng, lat: point.lat, heading: 0,
+        };
     }
 
     const search = (lo, hi) => {
@@ -84,6 +87,14 @@ export function snapToPath(path, cum, point, fromIndex = 0, window = 60) {
         const global = search(0, path.length - 1);
         if (global && (!best || global.offsetM < best.offsetM)) best = global;
     }
+    /*
+        붙인 지점에서의 **경로 진행방향**. 화면의 현위치 화살표는 이걸 써야 한다.
+        GPS 의 coords.heading 은 정지 상태에서 null 이고(첫 측위엔 직전 점도 없다),
+        그 대체값으로 직전 점과의 방위를 쓰면 서 있을 때 신호 흔들림만큼
+        화살표가 제멋대로 돈다. 마커는 어차피 경로 위에 붙여 그리므로
+        방향도 경로를 따르는 것이 맞다(실제 내비도 신호대기 중 도로를 가리킨다).
+    */
+    best.heading = bearing(path[best.index], path[best.index + 1]);
     return best;
 }
 

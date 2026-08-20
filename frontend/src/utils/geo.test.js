@@ -47,6 +47,33 @@ describe('snapToPath', () => {
         expect(hit.distAlong).toBeCloseTo(cum[5], 1);
     });
 
+    /*
+        현위치 화살표가 쓰는 값이다. GPS 의 coords.heading 은 정지 상태에서
+        null 이라 첫 측위 때 0(=정북)에 머물렀고, 그래서 안내를 켜면 화살표가
+        경로 방향과 무관하게 북쪽을 가리켰다.
+    */
+    it('붙인 지점의 경로 진행방향을 함께 준다', () => {
+        const hit = snapToPath(path, cum, path[5], 0);
+        expect(hit.heading).toBeCloseTo(0, 0);        // 북쪽으로 뻗은 직선
+    });
+
+    it('동쪽으로 뻗은 경로면 진행방향이 90도', () => {
+        const east = Array.from({ length: 10 }, (_, i) => ({
+            lng: 127 + i * 0.001,
+            lat: SEOUL_LAT
+        }));
+        const ecum = cumulative(east);
+        const hit = snapToPath(east, ecum, east[3], 0);
+        expect(hit.heading).toBeGreaterThan(88);
+        expect(hit.heading).toBeLessThan(92);
+    });
+
+    it('정지해서 경로 옆에 있어도 진행방향은 경로를 따른다', () => {
+        const off = { lng: 127.0005, lat: path[5].lat };
+        const hit = snapToPath(path, cum, off, 0);
+        expect(hit.heading).toBeCloseTo(0, 0);
+    });
+
     it('옆으로 벗어난 점은 수직거리를 이탈거리로 준다', () => {
         // 경도 +0.001 ≈ 88m 동쪽
         const off = { lng: 127.001, lat: path[5].lat };

@@ -109,6 +109,18 @@ export default function S5_Navigation() {
     }, [path]);
 
     const onRoute = hasStarted && snapped;
+
+    /*
+        현위치 화살표가 가리킬 방향.
+
+        경로 위에 있으면 **경로의 진행방향**을 쓴다. GPS 의 coords.heading 은
+        정지 상태에서 null 이라, 첫 측위 때는 초기값 0(=정북)에 머물고 그
+        뒤로는 '직전 점과의 방위'로 대체되는데 서 있으면 신호가 미세하게
+        튀어 화살표가 제멋대로 돈다. 마커를 이미 경로에 스냅해 그리므로
+        방향도 경로를 따라야 어긋나지 않는다.
+        경로 밖(출발 대기)일 때만 GPS 방위를 쓴다 — 그땐 따라갈 선이 없다.
+    */
+    const displayHeading = onRoute ? snapped.heading : heading;
     const distanceToStart = useMemo(
         () => (position && path.length ? haversine(position, path[0]) : null),
         [position, path]
@@ -268,7 +280,7 @@ export default function S5_Navigation() {
                         // 출발 전이면 경로에 붙이지 않는다. 엉뚱한 지점에 마커를
                         // 찍느니 경로 전체를 보여주는 미리보기가 정직하다.
                         position={onRoute ? { lng: snapped.lng, lat: snapped.lat } : null}
-                        heading={heading}
+                        heading={displayHeading}
                         follow={follow && Boolean(onRoute)}
                         onFollowBreak={handleFollowBreak}
                     />
