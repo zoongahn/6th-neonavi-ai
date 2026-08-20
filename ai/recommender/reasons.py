@@ -19,9 +19,7 @@
    단위를 넘겨짚으면 카드가 통째로 안 뜨거나 잡음이 근거로 승격된다.
    실제로 fuel_cost 는 원이 아니라 리터(L)고, slope·road_type 은 0.01 단위다.
 """
-from ..schema import PREFERENCE_AXES
-
-AXIS_KOR = {'sports': '스포티한 주행', 'comfort': '편안함', 'fuel': '경제성'}
+from ..schema import PREFERENCE_AXES, AXIS_KOR
 
 MAX_CARDS = 5
 
@@ -124,7 +122,8 @@ def _axis_card(idx: int, feats_len: int, axes_all: list, weights: dict) -> dict 
     share = (contrib[axis] / total) if total > 0 else 0.0
     return {
         'icon': '🎯',
-        'title': (f'{label}에 가장 잘 맞아요' if is_best else f'{label} 성향에 맞는 편이에요'),
+        'title': (f'{label} 성향에 가장 잘 맞아요' if is_best
+                  else f'{label} 성향에 맞는 편이에요'),
         'desc': (
             f'추론된 성향에서 {label} 비중이 {float(weights[axis]) * 100:.0f}%로 가장 큽니다. '
             f'이 경로는 그 축에서 {mine * 100:.0f}점으로, 추천 점수의 '

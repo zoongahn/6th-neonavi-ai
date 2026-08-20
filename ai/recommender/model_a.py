@@ -11,7 +11,7 @@ import os
 
 import torch
 
-from ..schema import Recommendation, PREFERENCE_AXES
+from ..schema import Recommendation, PREFERENCE_AXES, AXIS_KOR
 from ..features import vectorize
 from ..encoders import encode_profile, feature_row
 from ..models.two_tower import TwoTower
@@ -20,7 +20,6 @@ from . import reasons
 _DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
 _DEFAULT_CKPT = os.path.join(_DATA_DIR, 'model_a.pt')
 
-AXIS_KOR = {'sports': '스포티한 주행', 'comfort': '편안함', 'fuel': '경제성', 'safety': '안전'}
 
 
 class LoadedModel:

@@ -5,8 +5,11 @@ import { useLocation, useNavigate } from 'react-router-dom';
     성향 축은 sports/comfort/fuel 셋뿐이다. '안전성'은 2026-07-18 계약 개정에서
     삭제되고 comfort 로 흡수됐다 — 화면에 남겨 두면 없는 축의 점수를 보여주게 된다.
 */
+// ⚠️ 라벨은 ai/recommender/model_a.py 의 AXIS_KOR 과 같아야 한다.
+// 근거 카드는 거기서 문구를 만들기 때문에, 다르면 한 화면에서 같은 축이
+// 두 이름으로 불린다(카드 '스포티한 주행' vs 진행바 '주행 다이내믹').
 const AXIS_LABEL = {
-    sports: '🏁 주행 다이내믹',
+    sports: '🏁 스포티',
     comfort: '💺 편안함',
     fuel: '🍃 경제성'
 };
@@ -108,11 +111,6 @@ export default function RouteDetail() {
                 typeof peerFeatures[key] === 'number' ? fmt(peerFeatures[key]) : '—'
             ]),
         [shownKeys, rawFeatures, peerFeatures]
-    );
-
-    const modelPills = useMemo(
-        () => shownKeys.map(([key]) => `${key} = ${rawFeatures[key]}`),
-        [shownKeys, rawFeatures]
     );
 
     const [aiReasons, setAiReasons] = useState(localReasons);
@@ -291,20 +289,6 @@ export default function RouteDetail() {
                                 ))}
                             </tbody>
                         </table>
-                    </div>
-
-                    {/* 모델 입력 지표 (Pills) */}
-                    <div className="mt-6 border-t border-gray-100 pt-4">
-                        <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-1">
-                            <span className="text-indigo-500">⚙️</span> 모델 입력 지표
-                        </h4>
-                        <div className="flex flex-wrap gap-2">
-                            {modelPills.map((tag, idx) => (
-                                <span key={idx} className="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl text-xs font-mono font-bold">
-                                    {tag}
-                                </span>
-                            ))}
-                        </div>
                     </div>
                 </div>
             </div>

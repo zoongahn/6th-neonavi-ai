@@ -11,6 +11,14 @@ from dataclasses import dataclass, field
 # sports = '빠른 길'이 아니라 '감속 회피/주행속력'. safety는 2026-07-18 삭제(보조축이라 argmax 안 됨, comfort 흡수).
 PREFERENCE_AXES = ('sports', 'comfort', 'fuel')
 
+# 사용자에게 보이는 축 이름 — **여기 하나만 고친다.**
+# 예전엔 model_a·reasons·화면이 각자 들고 있어서 같은 축이 한 페이지에서
+# '스포티한 주행'과 '주행 다이내믹' 두 이름으로 불렸다.
+# 표기는 backend MODE_LABEL('스포티'/'편안함'/'경제성')과 맞춘다 — 사용자에겐
+# 모드 이름과 축 이름이 같은 말이어야 한다.
+# 'safety' 는 2026-07-18 에 삭제된 축이지만 옛 기록 표시용으로 남긴다.
+AXIS_KOR = {'sports': '스포티', 'comfort': '편안함', 'fuel': '경제성', 'safety': '안전'}
+
 # ── 경로 특성 벡터 f 의 필드 (features/vectorize.py 가 이 순서로 생성) ──
 # Phase 0 계약. [방향] = 값이 낮을수록 좋음(↓) / 높을수록 좋음(↑).
 # avg_speed·road_type 은 ↑(높을수록 좋음) → vectorize.HIGHER_BETTER 로 부호 반전 처리.
