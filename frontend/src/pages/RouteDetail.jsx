@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+
+import TopNavBar from '../components/TopNavBar';
 
 /*
     성향 축은 sports/comfort/fuel 셋뿐이다. '안전성'은 2026-07-18 계약 개정에서
@@ -40,7 +42,6 @@ const RAW_ROWS = [
 const ZERO_IS_REAL = new Set(['toll']);
 
 export default function RouteDetail() {
-    const navigate = useNavigate();
     const location = useLocation();
 
     // 이전 페이지(S4)에서 넘겨준 데이터
@@ -176,12 +177,11 @@ export default function RouteDetail() {
 
     return (
         <div className="bg-gray-50 min-h-[100dvh] flex flex-col pb-10">
-            {/* 상단 네비게이션 */}
-            <div className="sticky top-0 z-50 bg-white px-4 py-4 flex items-center justify-between border-b border-gray-100 shadow-sm">
-                <button onClick={() => navigate(-1)} className="text-xl font-bold text-gray-800">←</button>
-                <h1 className="text-lg font-bold text-indigo-600">너네비 · NeoNavi</h1>
-                <div className="w-6"></div> {/* 레이아웃 맞춤용 빈 공간 */}
-            </div>
+            {/* 상단 바는 공용 컴포넌트를 쓴다. 예전엔 이 화면만 자체 헤더라
+                높이·패딩·제목 색이 다른 페이지와 달랐고, 제목도 서비스 이름
+                ('너네비 · NeoNavi')이라 지금 무슨 화면인지 알려주지 않았다.
+                다른 화면 규칙: '경로 옵션 설정' · '경로 탐색 결과'. */}
+            <TopNavBar title="경로 상세" />
 
             <div className="p-4 space-y-6">
                 {/* 1. 경로 요약 — 배지+정체 한 줄, 지표 한 줄.
