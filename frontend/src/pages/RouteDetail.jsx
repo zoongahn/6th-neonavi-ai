@@ -4,14 +4,14 @@ import { useLocation, useNavigate } from 'react-router-dom';
 /*
     성향 축은 sports/comfort/fuel 셋뿐이다. '안전성'은 2026-07-18 계약 개정에서
     삭제되고 comfort 로 흡수됐다 — 화면에 남겨 두면 없는 축의 점수를 보여주게 된다.
+
+    ⚠️ 라벨은 ai/schema.py 의 AXIS_KOR 과 같아야 한다. 근거 카드 문구가 거기서
+       나오므로, 다르면 한 화면에서 같은 축이 두 이름으로 불린다.
 */
-// ⚠️ 라벨은 ai/recommender/model_a.py 의 AXIS_KOR 과 같아야 한다.
-// 근거 카드는 거기서 문구를 만들기 때문에, 다르면 한 화면에서 같은 축이
-// 두 이름으로 불린다(카드 '스포티한 주행' vs 진행바 '주행 다이내믹').
 const AXIS_LABEL = {
-    sports: '🏁 스포티',
-    comfort: '💺 편안함',
-    fuel: '🍃 경제성'
+    sports: '스포티',
+    comfort: '편안함',
+    fuel: '경제성'
 };
 
 /*
@@ -46,7 +46,7 @@ export default function RouteDetail() {
     // 이전 페이지(S4)에서 넘겨준 데이터
     const { tripData, route, axes } = location.state || {};
 
-    // 💡 방어 코드: 직접 URL을 치고 들어왔을 경우를 대비한 기본 더미 데이터
+    // 직접 URL 로 들어온 경우를 대비한 기본값
     const displayRoute = route || {
         title: '추천 경로 A',
         time: '18분',
@@ -130,7 +130,6 @@ export default function RouteDetail() {
             setIsLoading(true);
             setErrorMessage('');
             try {
-                // 🚀 백엔드 API 호출
                 const response = await fetch('http://127.0.0.1:8000/api/routes/explain/', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -176,18 +175,18 @@ export default function RouteDetail() {
                     <div>
                         <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md mb-1 inline-block">★ 추천 경로</span>
                         <h2 className="text-xl font-extrabold text-gray-900">{displayRoute.title}</h2>
-                        <p className="text-sm text-gray-500 mt-1">🕒 예상 시간 {displayRoute.time} · 📏 {displayRoute.distance}</p>
+                        <p className="text-sm text-gray-500 mt-1">예상 시간 {displayRoute.time} · {displayRoute.distance}</p>
                     </div>
                 </div>
 
-                {/* 2. 🚀 AI 맞춤 추천 이유 (API 연동) */}
+                {/* 2. 추천 근거 — 추천 계산에서 함께 내려온다 */}
                 <div>
-                    <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-1">
-                        <span className="text-indigo-500">✨</span> 이 경로를 추천하는 이유
+                    <h3 className="text-lg font-bold text-gray-900 mb-3">
+                        이 경로를 추천하는 이유
                     </h3>
 
                     <div className="space-y-3">
-                        {/* 🌀 로딩 스켈레톤 UI */}
+                        {/* 로딩 스켈레톤 (LLM 폴백 경로에서만 보인다) */}
                         {isLoading && (
                             <div className="space-y-3 animate-pulse">
                                 {[1, 2, 3].map((i) => (
@@ -202,14 +201,14 @@ export default function RouteDetail() {
                             </div>
                         )}
 
-                        {/* ❌ 에러 메시지 */}
+                        {/* 에러 메시지 */}
                         {!isLoading && errorMessage && (
                             <div className="bg-red-50 text-red-600 p-4 rounded-xl border border-red-100 text-sm font-medium">
                                 {errorMessage}
                             </div>
                         )}
 
-                        {/* ✅ API 로딩 완료 후 실제 데이터 렌더링 */}
+                        {/* 근거 카드 */}
                         {!isLoading && !errorMessage && aiReasons.length > 0 && aiReasons.map((item, idx) => {
                             let displayIcon = "✨";
                             const iconStr = String(item.icon || "");
@@ -245,8 +244,8 @@ export default function RouteDetail() {
 
                 {/* 3. AI 경로 분석 (진행바 및 원본 데이터 유지) */}
                 <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-1">
-                        <span className="text-indigo-500">📈</span> AI 경로 분석
+                    <h3 className="text-lg font-bold text-gray-900 mb-4">
+                        AI 경로 분석
                     </h3>
 
                     <div className="flex items-center gap-6 mb-6">
@@ -268,8 +267,8 @@ export default function RouteDetail() {
 
                     {/* 원본 데이터 비교 표 */}
                     <div className="mt-6 border-t border-gray-100 pt-4">
-                        <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-1">
-                            <span className="text-indigo-500">📊</span> 원본 데이터
+                        <h4 className="font-bold text-gray-800 mb-3">
+                            원본 데이터
                         </h4>
                         <table className="w-full text-sm">
                             <thead>
