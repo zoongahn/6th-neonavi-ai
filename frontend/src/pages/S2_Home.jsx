@@ -509,12 +509,6 @@ export default function S2_Home() {
                     경로 찾기
                 </button>
             </div>
-
-            <div className="device-footer">
-                <div className="footer-panel">
-                    너네비: 경로 입력
-                </div>
-            </div>
         </>
     );
 }

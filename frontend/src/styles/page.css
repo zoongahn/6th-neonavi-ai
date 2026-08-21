@@ -150,24 +150,6 @@
 }
 
 /* --- 하단 기기 기능 패널 --- */
-.device-footer {
-    width: 100%;
-    background-color: #F9FAFB;
-    border-top: 1px solid #E5E7EB;
-    padding: 16px;
-    display: flex;
-    justify-content: center;
-}
-
-.footer-panel {
-    background-color: #E5E7EB;
-    color: #6B7280;
-    padding: 12px 24px;
-    border-radius: 12px;
-    font-size: 14px;
-    font-weight: 500;
-}
-
 /*메인 content */
 .page-content {
     flex: 1;
