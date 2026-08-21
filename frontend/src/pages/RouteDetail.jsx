@@ -189,7 +189,7 @@ export default function RouteDetail() {
                             className={
                                 'text-xs font-bold px-2 py-1 rounded-md ' +
                                 (isTopRoute
-                                    ? 'text-indigo-600 bg-indigo-50'
+                                    ? 'text-brand-600 bg-brand-50'
                                     : 'text-gray-500 bg-gray-100')
                             }
                         >
@@ -282,9 +282,9 @@ export default function RouteDetail() {
                                 <div key={idx} className="flex items-center justify-between gap-2">
                                     <span className="text-xs font-bold text-gray-600 w-20">{stat.label}</span>
                                     <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                        <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${stat.score}%` }}></div>
+                                        <div className="h-full bg-brand-500 rounded-full" style={{ width: `${stat.score}%` }}></div>
                                     </div>
-                                    <span className="text-xs font-bold text-indigo-600">{stat.score}</span>
+                                    <span className="text-xs font-bold text-brand-600">{stat.score}</span>
                                 </div>
                             ))}
                         </div>
@@ -299,7 +299,7 @@ export default function RouteDetail() {
                             <thead>
                                 <tr className="text-gray-500 text-xs border-b border-gray-100">
                                     <th className="font-medium pb-2 text-left">지표</th>
-                                    <th className="font-bold text-indigo-600 pb-2 text-center">추천 경로</th>
+                                    <th className="font-bold text-brand-600 pb-2 text-center">추천 경로</th>
                                     <th className="font-medium pb-2 text-center">후보 평균</th>
                                 </tr>
                             </thead>
@@ -307,7 +307,7 @@ export default function RouteDetail() {
                                 {rawRows.map((row, idx) => (
                                     <tr key={idx} className="text-gray-700">
                                         <td className="py-2.5 text-gray-600">{row[0]}</td>
-                                        <td className="py-2.5 text-center font-bold text-indigo-600">{row[1]}</td>
+                                        <td className="py-2.5 text-center font-bold text-brand-600">{row[1]}</td>
                                         <td className="py-2.5 text-center text-gray-400">{row[2]}</td>
                                     </tr>
                                 ))}

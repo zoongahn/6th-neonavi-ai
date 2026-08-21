@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { BRAND } from '../theme';
 
 import { loadTmap } from '../utils/tmapMap';
 
@@ -17,7 +18,7 @@ import { loadTmap } from '../utils/tmapMap';
     한눈에", 여기는 "경로 하나를 따라가는 카메라"라 요구가 정반대다.
 */
 
-const ROUTE_COLOR = '#4f46e5';   // indigo-600
+const ROUTE_COLOR = BRAND[600];
 const FOLLOW_ZOOM = 17;          // 주행 중 확대 수준 (웹 메르카토르 줌)
 const DRAG_PX = 8;               // 이보다 크게 끌면 "사용자가 지도를 움직였다"
 
@@ -242,7 +243,7 @@ export default function NavMap({
                     'background:#ffffff;box-shadow:0 1px 6px rgba(0,0,0,0.35)"></span>' +
                     '<svg class="nav-heading-arrow" viewBox="0 0 24 24" ' +
                     'style="position:absolute;inset:11px">' +
-                    '<path d="M12 3 L19.5 20 L12 16 L4.5 20 Z" fill="#4f46e5" ' +
+                    '<path d="M12 3 L19.5 20 L12 16 L4.5 20 Z" fill="' + BRAND[600] + '" ' +
                     'stroke="#4338ca" stroke-width="0.5" stroke-linejoin="round"/>' +
                     '</svg></div>',
                 anchor: 'center',

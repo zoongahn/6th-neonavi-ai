@@ -80,7 +80,7 @@ export default function DepartureTimeModal({ isOpen, onClose, onConfirm, initial
                             checked={isCustomTime}
                             onChange={(e) => setIsCustomTime(e.target.checked)}
                         />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
                     </label>
                 </div>
 
@@ -105,7 +105,7 @@ export default function DepartureTimeModal({ isOpen, onClose, onConfirm, initial
                     </button>
                     <button
                         onClick={handleConfirm}
-                        className="flex-1 py-4 rounded-xl font-bold text-[16px] bg-blue-600 text-white shadow-md active:bg-blue-700 transition-colors"
+                        className="flex-1 py-4 rounded-xl font-bold text-[16px] bg-brand-600 text-white shadow-md active:bg-blue-700 transition-colors"
                     >
                         확인
                     </button>

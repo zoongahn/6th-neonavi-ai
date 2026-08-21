@@ -284,7 +284,7 @@ export default function S7() {
 
                 {/* 프로필 요약 카드 */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm mb-6 flex items-center gap-4">
-                    <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center text-2xl">
+                    <div className="w-16 h-16 bg-brand-100 rounded-full flex items-center justify-center text-2xl">
                         😎
                     </div>
 
@@ -332,7 +332,7 @@ export default function S7() {
                             </label>
 
                             {savedLocations.home && (
-                                <span className="text-xs font-bold text-indigo-600">
+                                <span className="text-xs font-bold text-brand-600">
                                     설정됨
                                 </span>
                             )}
@@ -389,7 +389,7 @@ export default function S7() {
                                         'home'
                                     )
                                 }
-                                className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition"
+                                className="flex-1 py-3 rounded-xl bg-brand-600 text-white font-bold hover:bg-brand-700 transition"
                             >
                                 집 저장
                             </button>
@@ -419,7 +419,7 @@ export default function S7() {
                             </label>
 
                             {savedLocations.company && (
-                                <span className="text-xs font-bold text-indigo-600">
+                                <span className="text-xs font-bold text-brand-600">
                                     설정됨
                                 </span>
                             )}
@@ -476,7 +476,7 @@ export default function S7() {
                                         'company'
                                     )
                                 }
-                                className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition"
+                                className="flex-1 py-3 rounded-xl bg-brand-600 text-white font-bold hover:bg-brand-700 transition"
                             >
                                 회사 저장
                             </button>
@@ -499,7 +499,7 @@ export default function S7() {
 
 
                     {message && (
-                        <p className="mt-4 text-sm font-semibold text-indigo-600">
+                        <p className="mt-4 text-sm font-semibold text-brand-600">
                             {message}
                         </p>
                     )}

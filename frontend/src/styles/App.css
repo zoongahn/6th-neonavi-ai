@@ -23,6 +23,14 @@
   font-display: swap;
 }
 
+:root {
+  /* page.css 같은 순수 CSS 는 tailwind 토큰을 못 쓰므로 여기로 잇는다.
+     값은 tailwind.config.js 의 brand 램프와 같아야 한다. */
+  --brand-600: #4F46E5;
+  --brand-700: #4338CA;
+  --danger: #EF4444;
+}
+
 /*공통부분디자인*/
 * {
   margin: 0;

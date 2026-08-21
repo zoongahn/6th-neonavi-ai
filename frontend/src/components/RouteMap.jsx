@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { BRAND, INK_900 } from '../theme';
 
 import { loadKakaoMap } from '../utils/kakaoMap';
 import { cumulative, haversine, pointAtDistance } from '../utils/geo';
 
-const SELECTED_COLOR = '#4f46e5';   // 선택된 경로 (indigo-600)
+const SELECTED_COLOR = BRAND[600];   // 선택된 경로
 const OTHER_COLOR = '#9ca3af';      // 나머지 경로 (gray-400)
 
 // 진행방향 화살표를 선 안쪽에 옅게 깐다(네이버지도 방식).
@@ -54,7 +55,7 @@ function arrowOverlay(kakao, position, heading) {
  * 축소했을 때 두 배지가 서로 겹쳐 지도를 가린다.
  */
 function endpointOverlay(kakao, position, kind) {
-    const color = kind === 'start' ? '#111827' : '#4f46e5';   // 출발=먹, 도착=인디고
+    const color = kind === 'start' ? INK_900 : BRAND[600];   // 출발=먹, 도착=인디고
     const el = document.createElement('div');
     el.style.cssText = 'width:26px;height:36px;pointer-events:none';
     el.innerHTML =

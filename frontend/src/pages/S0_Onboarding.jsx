@@ -34,7 +34,7 @@ export default function S0() {
 
                 {/* 메인 타이틀  */}
                 <h1 className="text-gray-900 text-[32px] font-extrabold text-center leading-[1.35] mb-5 tracking-tight">
-                    너만을 위한<br />맞춤 내비, <span className="text-[#5C5CFF]">너네비</span>
+                    너만을 위한<br />맞춤 내비, <span className="text-brand-600">너네비</span>
                 </h1>
 
                 {/* 서브 설명 텍스트  */}
@@ -55,7 +55,7 @@ export default function S0() {
 
                 <button
                     onClick={handleStart}
-                    className="w-full bg-[#5C5CFF] text-white py-4 rounded-2xl font-bold text-[17px] shadow-[0_8px_20px_rgba(92,92,255,0.3)] hover:bg-indigo-600 active:scale-95 transition-transform"
+                    className="w-full bg-brand-600 text-white py-4 rounded-2xl font-bold text-[17px] shadow-[0_8px_20px_rgba(79,70,229,0.3)] hover:bg-brand-700 active:scale-95 transition-transform"
                 >
                     {isReady ? '시작하기' : '기본 정보 입력하고 시작하기'}
                 </button>

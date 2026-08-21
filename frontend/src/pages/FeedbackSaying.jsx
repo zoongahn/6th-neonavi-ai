@@ -35,19 +35,19 @@ export default function FeedbackSaying() {
     return (
         // 가로는 앱 프레임(max-w-lg)까지만. inset-0 이면 데스크톱에서 브라우저
         // 화면 전체가 남보라색으로 덮여 폰 화면 흉내가 깨진다.
-        <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-lg z-[999] flex flex-col items-center justify-center bg-indigo-600 text-white px-6 text-center animate-fade-in">
+        <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-lg z-[999] flex flex-col items-center justify-center bg-brand-600 text-white px-6 text-center animate-fade-in">
 
             <div className="text-6xl mb-8 animate-bounce">
                 🚘
             </div>
 
-            <div className="bg-indigo-700/50 p-8 rounded-3xl backdrop-blur-sm max-w-sm w-full shadow-lg border border-indigo-500/30">
+            <div className="bg-brand-700/50 p-8 rounded-3xl backdrop-blur-sm max-w-sm w-full shadow-lg border border-brand-500/30">
 
                 <p className="text-xl font-bold leading-relaxed mb-4 break-keep">
                     "{quote}"
                 </p>
 
-                <p className="text-sm text-indigo-200 font-medium tracking-widest">
+                <p className="text-sm text-brand-200 font-medium tracking-widest">
                     - NeoNavi -
                 </p>
 

@@ -378,23 +378,23 @@ export default function S6_Feedback() {
         }
         if (rating <= 2) {
             return {
-                starColor: 'text-orange-400',
+                starColor: 'text-amber-500',
                 btnColor:
-                    'bg-orange-500 text-white shadow-lg',
+                    'bg-amber-500 text-white shadow-lg',
                 btnText:
                     `별 ${rating}개 · 아쉬워요`
             };
         }
         if (rating === 3) {
             return {
-                starColor: 'text-yellow-400',
+                starColor: 'text-amber-400',
                 btnColor:
-                    'bg-yellow-400 text-white shadow-lg',
+                    'bg-amber-400 text-white shadow-lg',
                 btnText:
                     '별 3개 · 무난했어요'
             };
         }
-        return { starColor: 'text-indigo-600', btnColor: 'bg-indigo-600 text-white shadow-lg', btnText: `별 ${rating}개 · 아주 만족해요!` };
+        return { starColor: 'text-brand-600', btnColor: 'bg-brand-600 text-white shadow-lg', btnText: `별 ${rating}개 · 아주 만족해요!` };
     };
 
     const config = getFeedbackConfig();
@@ -521,7 +521,7 @@ export default function S6_Feedback() {
         <div className="p-6 bg-white min-h-screen flex flex-col justify-center items-center text-center">
 
             {/* 도착 아이콘 */}
-            <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-3xl mb-6">
+            <div className="w-16 h-16 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center text-3xl mb-6">
                 🏁
             </div>
 

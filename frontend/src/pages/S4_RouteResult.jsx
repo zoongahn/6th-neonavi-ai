@@ -344,7 +344,7 @@ export default function S4_RouteResult() {
                     <p className="font-bold text-gray-900 break-words">
                         {tripData.departure || '출발지'}
 
-                        <span className="mx-2 text-indigo-500">
+                        <span className="mx-2 text-brand-500">
                             →
                         </span>
 
@@ -360,7 +360,7 @@ export default function S4_RouteResult() {
 
                     <div className="flex items-center justify-between">
 
-                        <p className="font-extrabold text-indigo-600">
+                        <p className="font-extrabold text-brand-600">
                             {autoRecommend
                                 ? 'AI 자동 추천'
                                 : selectedMode}
@@ -417,7 +417,7 @@ export default function S4_RouteResult() {
                 {/* 프로필 없음 — 에러가 아니라 '할 일'이라 별도로 안내한다 */}
                 {needsProfile && (
                     <div className="px-4 pb-4">
-                        <div className="bg-white rounded-2xl border border-indigo-200 px-4 py-5">
+                        <div className="bg-white rounded-2xl border border-brand-200 px-4 py-5">
                             <p className="font-bold text-gray-900 mb-1">기본 정보가 필요해요</p>
                             <p className="text-xs text-gray-600 mb-4">
                                 나이·성별·차종·연식으로 운전 성향을 추론합니다. 한 번만 입력하면 돼요.
@@ -427,7 +427,7 @@ export default function S4_RouteResult() {
                                 onClick={() =>
                                     navigate('/profile', { state: { profileRequired: true } })
                                 }
-                                className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold active:bg-indigo-700 transition-colors"
+                                className="w-full bg-brand-600 text-white py-3 rounded-xl font-bold active:bg-brand-700 transition-colors"
                             >
                                 기본 정보 입력하기
                             </button>
@@ -482,7 +482,7 @@ export default function S4_RouteResult() {
                                 }}
                                 className={`min-w-[180px] flex-shrink-0 p-4 rounded-2xl cursor-pointer transition-all bg-white shadow-sm ${
                                     isSelected
-                                        ? 'border-[2.5px] border-indigo-600'
+                                        ? 'border-[2.5px] border-brand-600'
                                         : 'border border-gray-200 opacity-90'
                                 }`}
                             >
@@ -492,7 +492,7 @@ export default function S4_RouteResult() {
                                     <span
                                         className={`font-extrabold text-[15px] ${
                                             isSelected
-                                                ? 'text-indigo-600'
+                                                ? 'text-brand-600'
                                                 : 'text-gray-700'
                                         }`}
                                     >
@@ -502,7 +502,7 @@ export default function S4_RouteResult() {
                                     {/* 상세 버튼 */}
                                     <button
                                         type="button"
-                                        className="flex-none text-xs font-bold text-white bg-indigo-600 px-3 py-1.5 rounded-lg shadow-sm active:bg-indigo-700 transition-colors"
+                                        className="flex-none text-xs font-bold text-white bg-brand-600 px-3 py-1.5 rounded-lg shadow-sm active:bg-brand-700 transition-colors"
                                         onClick={(event) => {
                                             event.stopPropagation();
 
@@ -574,7 +574,7 @@ export default function S4_RouteResult() {
                                                     key={
                                                         label
                                                     }
-                                                    className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded"
+                                                    className="text-[10px] font-bold text-brand-700 bg-brand-50 border border-brand-100 px-1.5 py-0.5 rounded"
                                                 >
                                                     {label}{' '}
                                                     우선이라면
@@ -627,7 +627,7 @@ export default function S4_RouteResult() {
                             handleStartNavigation
                         }
                         disabled={!selectedRoute}
-                        className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-md active:bg-indigo-700 transition-colors disabled:bg-gray-400"
+                        className="flex-1 bg-brand-600 text-white py-4 rounded-xl font-bold text-lg shadow-md active:bg-brand-700 transition-colors disabled:bg-gray-400"
                     >
                         안내시작
                     </button>

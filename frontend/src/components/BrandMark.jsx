@@ -1,5 +1,7 @@
 import React from 'react';
 
+import { BRAND } from '../theme';
+
 /*
     너네비 마크 — 'neonavi' 의 N 을 도로로 그린 것.
     반투명한 노면 위에 중앙선이 얹힌 두 층 구조라서 길처럼 읽힌다.
@@ -19,7 +21,7 @@ const CENTER_LINE = 'M 140 372 L 140 162 L 372 362 L 372 162';
 
 export default function BrandMark({
     size = 40,
-    plate = '#4F46E5',   // 'none' 이면 판 없이 마크만 (어두운 배경·단색용)
+    plate = BRAND[600],   // 'none' 이면 판 없이 마크만 (어두운 배경·단색용)
     fg = '#FFFFFF',
     rounded = true,
     className = '',

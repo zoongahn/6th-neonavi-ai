@@ -60,7 +60,7 @@ export default function S0b_LocationPermission() {
         <div className="bg-white min-h-screen flex flex-col justify-between p-6">
 
             <div className="flex-1 flex flex-col justify-center items-center text-center mt-10">
-                <div className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center text-5xl mb-6 shadow-sm">
+                <div className="w-24 h-24 bg-brand-50 rounded-full flex items-center justify-center text-5xl mb-6 shadow-sm">
                     📍
                 </div>
 
@@ -74,7 +74,7 @@ export default function S0b_LocationPermission() {
 
                 <div className="bg-gray-50 rounded-2xl p-5 w-full text-left border border-gray-100">
                     <div className="flex items-start gap-3">
-                        <span className="text-indigo-600 text-xl mt-0.5">🎯</span>
+                        <span className="text-brand-600 text-xl mt-0.5">🎯</span>
                         <div>
                             <h3 className="text-sm font-bold text-gray-800">정확한 출발지 자동 설정</h3>
                             <p className="text-xs text-gray-500 mt-1.5">현재 계신 곳을 출발지로 바로 잡아드려요.</p>
@@ -88,7 +88,7 @@ export default function S0b_LocationPermission() {
                 <button
                     onClick={handleAllowLocation}
                     disabled={isLocating}
-                    className={`w-full font-bold text-lg py-4 rounded-xl shadow-md transition-colors ${isLocating ? 'bg-indigo-300 text-white cursor-not-allowed' : 'bg-indigo-600 text-white active:bg-indigo-700'
+                    className={`w-full font-bold text-lg py-4 rounded-xl shadow-md transition-colors ${isLocating ? 'bg-brand-300 text-white cursor-not-allowed' : 'bg-brand-600 text-white active:bg-brand-700'
                         }`}
                 >
                     {isLocating ? '위치 찾는 중... ⏳' : '위치 권한 허용하기'}

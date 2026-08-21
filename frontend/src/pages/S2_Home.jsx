@@ -424,7 +424,7 @@ export default function S2_Home() {
                                     ${
                                         passenger ===
                                         item
-                                            ? 'bg-indigo-600 text-white shadow-md'
+                                            ? 'bg-brand-600 text-white shadow-md'
                                             : 'border border-gray-200 text-gray-600 bg-white'
                                     }
                                 `}
@@ -440,7 +440,7 @@ export default function S2_Home() {
                     <label className="block text-sm font-bold text-gray-700 mb-3">
                         짐은 얼마나 싣나요?
 
-                        <span className="text-indigo-600 ml-2">
+                        <span className="text-brand-600 ml-2">
                             {loadKg} kg
                         </span>
                     </label>
@@ -478,7 +478,7 @@ export default function S2_Home() {
                                     ${
                                         loadKg ===
                                         item.value
-                                            ? 'bg-indigo-600 text-white shadow-md'
+                                            ? 'bg-brand-600 text-white shadow-md'
                                             : 'border border-gray-200 text-gray-600 bg-white'
                                     }
                                 `}

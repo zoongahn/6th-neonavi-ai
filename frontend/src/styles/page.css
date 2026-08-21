@@ -132,7 +132,7 @@
 
 /* --- 메인 경로 찾기 버튼 --- */
 .pathfind-button {
-    background-color: #625DCE;
+    background-color: var(--brand-600);
     color: white;
     border: none;
     width: 100%;
@@ -231,7 +231,7 @@
 }
 
 .pref-input-box:focus {
-    outline: 2px solid #625DCE;
+    outline: 2px solid var(--brand-600);
     border-color: transparent;
 }
 
@@ -257,7 +257,7 @@
 }
 
 .gender-btn.active {
-    background-color: #625DCE;
+    background-color: var(--brand-600);
     color: white;
 }
 
@@ -281,9 +281,9 @@
 }
 
 .pill-btn.active {
-    background-color: #625DCE;
+    background-color: var(--brand-600);
     color: white;
-    border-color: #625DCE;
+    border-color: var(--brand-600);
 }
 
 /* 모드 선택 부분 */
@@ -319,7 +319,7 @@
 
 /* 상단 안내 패널 */
 .drive-top-panel {
-    background-color: #625DCE;
+    background-color: var(--brand-600);
     color: white;
     padding: 24px 20px;
     display: flex;
@@ -402,7 +402,7 @@
 
 /* 안내 종료 버튼 */
 .end-drive-btn {
-    background-color: #fc6e0f;
+    background-color: var(--danger);
     color: white;
     border: none;
     border-radius: 12px;
@@ -415,5 +415,5 @@
 }
 
 .end-drive-btn:hover {
-    background-color: #fc6e0f;
+    background-color: var(--danger);
 }

@@ -134,7 +134,7 @@ export default function S7a() {
                         key={i}
                         className={`w-4 h-4 ${
                             i < score
-                                ? 'text-yellow-400'
+                                ? 'text-amber-400'
                                 : 'text-gray-200'
                         }`}
                         fill="currentColor"
@@ -172,8 +172,8 @@ export default function S7a() {
             <div className="flex-1 px-4 pt-6 pb-10">
 
                 {/* 누적 주행거리 */}
-                <div className="bg-indigo-600 rounded-2xl p-6 shadow-md mb-6 text-white">
-                    <p className="text-indigo-100 text-sm font-medium mb-1">
+                <div className="bg-brand-600 rounded-2xl p-6 shadow-md mb-6 text-white">
+                    <p className="text-brand-100 text-sm font-medium mb-1">
                         지금까지 너네비와 함께
                     </p>
 
@@ -221,7 +221,7 @@ export default function S7a() {
                                         '출발지 정보 없음'}
 
                                     <svg
-                                        className="w-4 h-4 text-indigo-500"
+                                        className="w-4 h-4 text-brand-500"
                                         fill="none"
                                         stroke="currentColor"
                                         viewBox="0 0 24 24"
@@ -269,7 +269,7 @@ export default function S7a() {
                                         선택 모드
                                     </p>
 
-                                    <p className="font-bold text-indigo-600">
+                                    <p className="font-bold text-brand-600">
                                         {history.mode ||
                                             '추천 경로'}
                                     </p>
