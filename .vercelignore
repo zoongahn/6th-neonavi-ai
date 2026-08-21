@@ -1,0 +1,26 @@
+# Vercel 번들에서 뺄 것. 함수 번들 한도가 500MB 라 큰 것이 섞이면 배포가 막힌다.
+#
+# ⚠️ 이 파일은 프론트·백엔드 두 프로젝트에 모두 적용될 수 있어서,
+#    **어느 쪽에도 필요 없는 것만** 넣는다. frontend/ 를 여기 넣으면 안 된다.
+
+# 로컬 파이썬 환경 (수백 MB)
+.venv/
+**/__pycache__/
+*.pyc
+
+# 공공데이터 원본. 파생본(ai/data/public/derived)을 만들 때만 쓰고,
+# 서빙은 빌드 때 `python -m ai.fetch_data` 로 받는다.
+ai/data/public/nodelink/
+ai/data/public/dem/
+ai/data/public/signal/raw_json/
+
+# 학습 데이터·설문 (설문에는 개인정보가 들어 있다)
+ai/data/*.parquet
+ai/data/survey/
+ai/data/routes*/
+
+# 설계 문서 — 서빙에 불필요
+docs/
+
+# 로컬 DB
+backend/db.sqlite3
