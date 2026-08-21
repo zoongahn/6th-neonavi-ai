@@ -14,8 +14,22 @@ import { currentStep, prepareSteps } from '../utils/navSteps';
 const AXIS_TO_MODE = { sports: 'Sports', comfort: 'Comfort', fuel: 'Eco' };
 
 const ARRIVAL_M = 50;        // 남은거리가 이 아래면 도착으로 본다
-const OFF_ROUTE_M = 60;      // 경로에서 이만큼 벗어나면
+const OFF_ROUTE_M = 60;      // 주행 중 경로에서 이만큼 벗어나면
 const OFF_ROUTE_MS = 5000;   // 이 시간 이상 지속돼야 이탈로 친다(신호 튐 방지)
+// 출발 전 스냅 허용 반경. 출발지를 도로에 붙이는 과정(카카오)과 GPS 오차를
+// 합쳐 100m 안팎까지 벌어질 수 있어 넉넉히 잡는다. 이 값이 '주행 시작' 판정은
+// 아니다 — 그건 OFF_ROUTE_M 이 따로 본다.
+const START_SNAP_M = 150;
+/*
+    ⚠️ 주행 '시작' 판정은 OFF_ROUTE_M 보다 훨씬 느슨해야 한다. 그 값은 원래
+    주행 중 경로 이탈을 잡으려던 것이고, 출발 시점에는 다음이 겹친다.
+      · 카카오가 출발지를 도로에 붙인다 — 단지·골목 안이면 그대로 100m 가까이
+      · GPS 오차 — PC 는 WiFi 측위라 수십 m
+    실제로 '가락한신아파트'를 찍으면 경로 시작점이 단지 밖 도로라, 60m 기준으로는
+    "출발지에서 100m 떨어져 있습니다"에서 안내가 시작되지 않았다.
+*/
+const START_ON_ROUTE_M = 150;
+const BACKTRACK_M = 30;      // 이만큼의 후퇴는 신호 흔들림으로 보고 무시한다
 const SIM_SPEEDS = [40, 80, 160];
 
 export default function S5_Navigation() {
@@ -58,7 +72,7 @@ export default function S5_Navigation() {
     // ?sim=1 이면 모의 주행으로 시작한다(발표·개발용).
     const [source, setSource] = useState(() => (searchParams.get('sim') === '1' ? 'sim' : 'gps'));
     const [simSpeed, setSimSpeed] = useState(80);
-    const { position, heading, effectiveSource, notice } = useDrivePosition({
+    const { position, heading, accuracyM, effectiveSource, notice } = useDrivePosition({
         source,
         path,
         speedKmh: simSpeed,
@@ -66,14 +80,51 @@ export default function S5_Navigation() {
     });
 
     // 현위치를 경로선 위로 붙인다. 직전 인덱스를 힌트로 줘서 엉뚱한 구간에 붙는 걸 막는다.
+    //
+    // ⚠️ state + effect 로 만들면 안 된다. 위치가 20fps 로 갱신되는 동안
+    // setPosition 커밋 → effect → setSnapped 재커밋의 중첩 업데이트 사슬이
+    // 계속 이어져 React 가 무한루프로 오인한다("Maximum update depth exceeded").
+    // 파생값이므로 렌더 중에 계산한다.
     const snapHintRef = useRef(0);
-    const [snapped, setSnapped] = useState(null);
-    useEffect(() => {
-        if (!position || !cum || path.length < 2) return;
-        const hit = snapToPath(path, cum, position, snapHintRef.current);
+    const snapPathRef = useRef(path);
+    const maxAlongRef = useRef(0);
+    // 스냅 방식을 출발 전/후로 가르는데, state 는 이 계산보다 늦게 반영되므로
+    // ref 로도 들고 최신값을 본다.
+    const hasStartedRef = useRef(false);
+    if (snapPathRef.current !== path) {
+        // 경로가 바뀌면(모드 전환) 힌트도 처음부터
+        snapPathRef.current = path;
+        snapHintRef.current = 0;
+        maxAlongRef.current = 0;
+    }
+    const snapped = useMemo(() => {
+        if (!position || !cum || path.length < 2) return null;
+        const hit = snapToPath(path, cum, position, snapHintRef.current, 60, {
+            // 출발 전에는 '가장 가까운' 대신 '붙을 수 있는 가장 이른' 지점.
+            // 안 그러면 초반에 블록을 도는 경로에서, 경로선이 출발지 근처를
+            // 두 번 지나가는 탓에 두 번째 통과 지점에 붙어 그 구간을 이미
+            // 달린 것으로 잡힌다(출발지를 현위치로 찍어도 경로 중간에 서 있는
+            // 그림이 나오던 원인).
+            earliestWithin: hasStartedRef.current ? 0 : START_SNAP_M,
+        });
         snapHintRef.current = hit.index;
-        setSnapped(hit);
+        return hit;
     }, [position, path, cum]);
+
+    /*
+        진행거리는 뒤로 가지 않는다. GPS 가 튀거나 경로가 자기 자신에 가까워지는
+        구간(나들목·지하차도)에서 한참 뒤로 붙으면 남은거리가 갑자기 늘어난다.
+        되돌아간 것처럼 보이는 값은 표시하지 않는다(BACKTRACK_M 만큼은 신호
+        흔들림으로 보고 허용).
+    */
+    const monotonicAlong = useMemo(() => {
+        if (!snapped) return 0;
+        if (snapped.distAlong + BACKTRACK_M < maxAlongRef.current) {
+            return maxAlongRef.current;
+        }
+        maxAlongRef.current = Math.max(maxAlongRef.current, snapped.distAlong);
+        return maxAlongRef.current;
+    }, [snapped]);
 
     /*
         아직 경로에 올라타지 않은 상태(= 출발 전).
@@ -89,23 +140,48 @@ export default function S5_Navigation() {
         모의 주행은 경로 위에서 시작하므로 곧바로 주행 중이 된다.
     */
     const [hasStarted, setHasStarted] = useState(false);
+    // 측위가 ±80m 라고 스스로 말하는데 60m 이내를 요구하는 건 앞뒤가 맞지 않는다.
+    const startRadiusM = Math.max(START_ON_ROUTE_M, accuracyM || 0);
     useEffect(() => {
-        if (snapped && snapped.offsetM <= OFF_ROUTE_M) setHasStarted(true);
+        if (snapped && snapped.offsetM <= startRadiusM) setHasStarted(true);
+    }, [snapped, startRadiusM]);
+    hasStartedRef.current = hasStarted;
+
+    /*
+        경로 이탈 경고는 **한 번이라도 실제 경로 위에 올라온 뒤**에만 켠다.
+        출발 판정을 느슨하게 잡았으므로, 그것만으로 이탈을 재면 단지에서 나오는
+        동안 계속 "경로를 벗어났습니다"가 뜬다.
+    */
+    const [hasBeenOnRoute, setHasBeenOnRoute] = useState(false);
+    useEffect(() => {
+        if (snapped && snapped.offsetM <= OFF_ROUTE_M) setHasBeenOnRoute(true);
     }, [snapped]);
 
     // 경로가 바뀌면(모드 전환) 진행 상태를 처음으로
     useEffect(() => {
-        snapHintRef.current = 0;
-        setSnapped(null);
         setHasStarted(false);
+        setHasBeenOnRoute(false);
+        hasStartedRef.current = false;
     }, [path]);
 
     const onRoute = hasStarted && snapped;
+
+    /*
+        현위치 화살표가 가리킬 방향.
+
+        경로 위에 있으면 **경로의 진행방향**을 쓴다. GPS 의 coords.heading 은
+        정지 상태에서 null 이라, 첫 측위 때는 초기값 0(=정북)에 머물고 그
+        뒤로는 '직전 점과의 방위'로 대체되는데 서 있으면 신호가 미세하게
+        튀어 화살표가 제멋대로 돈다. 마커를 이미 경로에 스냅해 그리므로
+        방향도 경로를 따라야 어긋나지 않는다.
+        경로 밖(출발 대기)일 때만 GPS 방위를 쓴다 — 그땐 따라갈 선이 없다.
+    */
+    const displayHeading = onRoute ? snapped.heading : heading;
     const distanceToStart = useMemo(
         () => (position && path.length ? haversine(position, path[0]) : null),
         [position, path]
     );
-    const distAlong = onRoute ? snapped.distAlong : 0;
+    const distAlong = onRoute ? monotonicAlong : 0;
     const remainM = Math.max(0, totalM - distAlong);
     const step = useMemo(() => currentStep(steps, distAlong), [steps, distAlong]);
 
@@ -125,7 +201,7 @@ export default function S5_Navigation() {
     const [isOffRoute, setIsOffRoute] = useState(false);
     const offSinceRef = useRef(0);
     useEffect(() => {
-        if (!snapped || !hasStarted) return;   // 출발 전은 이탈이 아니다
+        if (!snapped || !hasBeenOnRoute) return;   // 경로에 올라오기 전은 이탈이 아니다
         if (snapped.offsetM > OFF_ROUTE_M) {
             if (!offSinceRef.current) offSinceRef.current = Date.now();
             else if (Date.now() - offSinceRef.current > OFF_ROUTE_MS) setIsOffRoute(true);
@@ -133,7 +209,7 @@ export default function S5_Navigation() {
             offSinceRef.current = 0;
             setIsOffRoute(false);
         }
-    }, [snapped, hasStarted]);
+    }, [snapped, hasBeenOnRoute]);
 
     // ── 화면 꺼짐 방지 ────────────────────────────────────────
     // 화면이 꺼지면 watchPosition 도 멈춘다(브라우저 정책). 주행 화면에선 필수.
@@ -260,7 +336,7 @@ export default function S5_Navigation() {
                         // 출발 전이면 경로에 붙이지 않는다. 엉뚱한 지점에 마커를
                         // 찍느니 경로 전체를 보여주는 미리보기가 정직하다.
                         position={onRoute ? { lng: snapped.lng, lat: snapped.lat } : null}
-                        heading={heading}
+                        heading={displayHeading}
                         follow={follow && Boolean(onRoute)}
                         onFollowBreak={handleFollowBreak}
                     />

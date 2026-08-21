@@ -216,8 +216,16 @@ export default function S4_RouteResult() {
                     // 이 경로를 1순위로 고르는 다른 성향들 (없으면 빈 배열)
                     preferredBy: route.preferred_by_labels || [],
                     path: route.path || [],
-
-                    axes: route.axes || {} //////추가됨
+                    // 성향축별 만족도(설명용)
+                    axes: route.axes || {},
+                    // 상세 페이지의 '추천하는 이유' 카드. 추천 계산에서 함께
+                    // 나오므로 상세를 열 때 추가 호출·대기가 없다.
+                    recommendReasons: route.recommend_reasons || [],
+                    // 0 = 추천 경로, 1.. = 대안. 상세가 제목 문자열을 파싱하지 않게.
+                    rank: typeof route.rank === 'number' ? route.rank : index,
+                    // 상세의 '원본 데이터'·'모델 입력 지표' — 예시값이 아니라 실값
+                    features: route.features || {},
+                    featuresPeerAvg: route.features_peer_avg || {},
                     // 주행 화면(S5)이 쓰는 것 — 남은시간 환산에 숫자가 필요하고,
                     // steps 는 턴바이턴 안내다. 문자열('25분')만 넘기면 S5에서 못 쓴다.
                     durationMin: route.duration_min,
@@ -497,14 +505,6 @@ export default function S4_RouteResult() {
                                         className="flex-none text-xs font-bold text-white bg-indigo-600 px-3 py-1.5 rounded-lg shadow-sm active:bg-indigo-700 transition-colors"
                                         onClick={(event) => {
                                             event.stopPropagation();
-                                            navigate('/detail', {
-                                                state: {
-                                                    route: route,
-                                                    tripData: {
-                                                        ...tripData, mode: selectedMode
-                                                    }
-                                                }
-                                            });
 
                                             /*
                                              * 상세 페이지로 가기 직전
@@ -535,11 +535,24 @@ export default function S4_RouteResult() {
                                                 );
                                             }
 
+                                            /*
+                                             * 상세 페이지의 LLM 설명(/api/routes/explain/)이
+                                             * profile·mode·axes 를 요구한다. profile 은
+                                             * tripData 에 없으므로(출발·도착·동승자만 들었다)
+                                             * 저장소에서 직접 읽어 넘긴다.
+                                             */
                                             navigate(
                                                 '/detail',
                                                 {
                                                     state: {
-                                                        route
+                                                        route,
+                                                        // 상세 상단에 '무슨 성향으로 고른 경로인지' 를 쓴다
+                                                        preference,
+                                                        tripData: {
+                                                            ...tripData,
+                                                            mode: selectedMode,
+                                                            profile: readProfile()
+                                                        }
                                                     }
                                                 }
                                             );

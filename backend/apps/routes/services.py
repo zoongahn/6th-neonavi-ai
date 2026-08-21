@@ -172,7 +172,7 @@ def _pool_failure_message(errors, origin_name, dest_name) -> str:
 
 def _title(rank: int, auto_recommend: bool, mode: str) -> str:
     if rank == 0:
-        return '✨ 너네비추천' if auto_recommend else f'✨ {MODE_LABEL.get(mode, mode)} 추천'
+        return '너네비추천' if auto_recommend else f'{MODE_LABEL.get(mode, mode)} 추천'
     return f'대안 경로 {rank}'
 
 
@@ -234,6 +234,8 @@ def recommend(payload: dict) -> dict:
         routes.append({
             'route_id': rec.route_id,
             'title': _title(rank, auto_recommend, mode),
+            # 0 = 추천 경로, 1.. = 대안. 화면이 제목 문자열을 파싱하지 않도록 숫자로 준다.
+            'rank': rank,
             'reason': rec.reason,
             'highlights': rec.highlights,   # 근거 조각(칩 렌더용)
             'score': rec.score,
@@ -241,6 +243,12 @@ def recommend(payload: dict) -> dict:
             'duration_min': round(route.duration_min),
             'toll': int(route.toll),
             'axes': rec.features,       # 성향축별 만족도(설명용)
+            # 상세 화면 '추천하는 이유' 카드. 추천 계산에서 함께 나오므로
+            # 상세를 열 때 추가 호출·대기가 없다.
+            'recommend_reasons': rec.reasons,
+            # 상세 화면 '원본 데이터'·'모델 입력 지표'용 실값
+            'features': rec.raw_features,
+            'features_peer_avg': rec.peer_features,
             # 이 경로를 1순위로 고르는 성향들. unanimous 면 비운다(FE가 문구로 대체).
             'preferred_by': [] if unanimous else modes_for_route,
             'preferred_by_labels': [] if unanimous else [MODE_LABEL[m] for m in modes_for_route],

@@ -11,15 +11,15 @@ import os
 
 import torch
 
-from ..schema import Recommendation, PREFERENCE_AXES
+from ..schema import Recommendation, PREFERENCE_AXES, AXIS_KOR
 from ..features import vectorize
 from ..encoders import encode_profile, feature_row
 from ..models.two_tower import TwoTower
+from . import reasons
 
 _DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
 _DEFAULT_CKPT = os.path.join(_DATA_DIR, 'model_a.pt')
 
-AXIS_KOR = {'sports': '스포티한 주행', 'comfort': '편안함', 'fuel': '경제성', 'safety': '안전'}
 
 
 class LoadedModel:
@@ -193,6 +193,24 @@ def _reason(highlights: list, solo: bool = False, is_top: bool = False) -> str:
     return '추천 경로와 비슷한 대안'
 
 
+def _peer_avg(idx: int, feats: list) -> dict:
+    """나머지 후보들의 특성 평균 — 상세 화면의 '후보 평균' 열.
+
+    자기 자신을 빼야 "내가 평균보다 낫다"는 비교가 성립한다.
+    후보가 하나뿐이면 비교 대상이 없으므로 빈 dict 를 준다(화면이 열을 숨긴다).
+    """
+    others = [f for j, f in enumerate(feats) if j != idx]
+    if not others:
+        return {}
+    keys = [k for k, v in feats[idx].items() if isinstance(v, (int, float))]
+    out = {}
+    for k in keys:
+        vals = [float(f[k]) for f in others if isinstance(f.get(k), (int, float))]
+        if vals:
+            out[k] = round(sum(vals) / len(vals), 4)
+    return out
+
+
 @torch.no_grad()
 def recommend(user_profile, candidate_routes, model=None, enrich=False,
               weights=None) -> list:
@@ -218,10 +236,16 @@ def recommend(user_profile, candidate_routes, model=None, enrich=False,
     f = m.satisfaction(route_x)                    # (N, 4)
     scores = (f * w).sum(dim=-1)                   # (N,)
     top = _pick_top(scores, feats)                 # 대안 설명의 기준점
+    w_dict = {a: float(w[i]) for i, a in enumerate(PREFERENCE_AXES)}
+
+    # 축 만족도는 후보끼리 비교해야 의미가 생긴다(전 후보에 같은 축 문구가
+    # 붙는 걸 막으려면 근거 생성기가 남의 값도 봐야 한다).
+    axes_all = [{a: float(f[j][i]) for i, a in enumerate(PREFERENCE_AXES)}
+                for j in range(len(candidate_routes))]
 
     recs = []
     for idx, route in enumerate(candidate_routes):
-        f_dict = {a: float(f[idx][i]) for i, a in enumerate(PREFERENCE_AXES)}
+        f_dict = axes_all[idx]
         marks = _highlights(idx, feats) or (_tradeoff(idx, top, feats) if idx != top else [])
         recs.append(Recommendation(
             route_id=_route_id(route, idx),
@@ -229,6 +253,12 @@ def recommend(user_profile, candidate_routes, model=None, enrich=False,
             reason=_reason(marks, solo=len(candidate_routes) == 1, is_top=idx == top),
             features={a: round(v, 3) for a, v in f_dict.items()},
             highlights=marks,
+            # 상세 화면의 '추천하는 이유' 카드. 여기서 만들어 두면 상세를 열 때
+            # 추가 호출이 없다(같은 후보집합·같은 w·f 라 설명이 어긋나지 않는다).
+            reasons=reasons.build(idx, feats, axes_all, w_dict, top_idx=top),
+            raw_features={k: round(float(v), 4) for k, v in feats[idx].items()
+                          if isinstance(v, (int, float))},
+            peer_features=_peer_avg(idx, feats),
         ))
     # 점수 내림차순. 단 가드레일이 고른 1순위(top)는 맨 앞에 둔다 — 점수만으로
     # 정렬하면 지배당한 경로가 다시 1번 자리로 올라온다.
