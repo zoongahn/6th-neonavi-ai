@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import BrandMark from '../components/BrandMark';
 
 import TopNavBar from '../components/TopNavBar';
 import PlaceInput from '../components/PlaceInput';
@@ -66,7 +67,7 @@ const Header = () => {
     return (
         <div className="header mt-2">
             <div className="logo-section">
-                <div className="logo-square" />
+                <BrandMark size={36} />
 
                 <h1 className="logo-text">
                     너네비

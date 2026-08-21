@@ -28,13 +28,6 @@
     gap: 12px;
 }
 
-.logo-square {
-    width: 36px;
-    height: 36px;
-    background-color: #625DCE;
-    border-radius: 10px;
-}
-
 .logo-text {
     font-size: 20px;
     font-weight: 700;

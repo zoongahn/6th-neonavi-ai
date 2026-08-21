@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import BrandMark from '../components/BrandMark';
 import { hasUsableProfile } from '../utils/profileStorage';
 
 export default function S0() {
@@ -25,10 +26,11 @@ export default function S0() {
             {/* 메인 콘텐츠 영역: 화면 중앙 정렬 */}
             <div className="flex-1 flex flex-col items-center justify-center px-6 mt-16">
 
-                {/* 앱 로고 아이콘 */}
-                <div className="w-24 h-24 bg-[#5C5CFF] rounded-[2rem] shadow-[0_10px_25px_rgba(92,92,255,0.3)] flex items-center justify-center mb-10">
-                    <span className="text-[48px]">🚙</span>
-                </div>
+                {/* 앱 로고 */}
+                <BrandMark
+                    size={96}
+                    className="mb-10 rounded-[2rem] shadow-[0_10px_25px_rgba(79,70,229,0.3)]"
+                />
 
                 {/* 메인 타이틀  */}
                 <h1 className="text-gray-900 text-[32px] font-extrabold text-center leading-[1.35] mb-5 tracking-tight">
