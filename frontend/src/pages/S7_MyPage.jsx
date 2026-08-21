@@ -14,6 +14,7 @@ import PlaceInput from '../components/PlaceInput';
 import {
     readProfile
 } from '../utils/profileStorage';
+import Icon from '../components/Icon';
 
 
 const SAVED_LOCATIONS_KEY =
@@ -285,7 +286,7 @@ export default function S7() {
                 {/* 프로필 요약 카드 */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm mb-6 flex items-center gap-4">
                     <div className="w-16 h-16 bg-brand-100 rounded-full flex items-center justify-center text-2xl">
-                        😎
+                        <Icon name="smile" size={28} />
                     </div>
 
                     <div>
@@ -328,7 +329,7 @@ export default function S7() {
                     <div className="mb-7">
                         <div className="flex items-center justify-between mb-2">
                             <label className="font-bold text-gray-700">
-                                🏠 집
+                                <Icon name="home" size={16} /> 집
                             </label>
 
                             {savedLocations.home && (
@@ -339,7 +340,7 @@ export default function S7() {
                         </div>
 
                         <PlaceInput
-                            icon="🏠"
+                            icon="home"
                             placeholder="집 주소 또는 장소 검색"
                             text={homeText}
                             onTextChange={(value) => {
@@ -415,7 +416,7 @@ export default function S7() {
                     <div>
                         <div className="flex items-center justify-between mb-2">
                             <label className="font-bold text-gray-700">
-                                🏢 회사
+                                <Icon name="building" size={16} /> 회사
                             </label>
 
                             {savedLocations.company && (
@@ -426,7 +427,7 @@ export default function S7() {
                         </div>
 
                         <PlaceInput
-                            icon="🏢"
+                            icon="building"
                             placeholder="회사 주소 또는 장소 검색"
                             text={companyText}
                             onTextChange={(value) => {

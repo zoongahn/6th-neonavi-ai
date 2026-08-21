@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import Icon from '../components/Icon';
 
 // 컴포넌트 밖에 둔다. 안에 두면 렌더마다 새 배열이 만들어져 useEffect 의존성
 // 경고가 나고, CI 빌드(경고를 에러로 취급)가 통째로 실패한다.
@@ -38,7 +39,7 @@ export default function FeedbackSaying() {
         <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-lg z-[999] flex flex-col items-center justify-center bg-brand-600 text-white px-6 text-center animate-fade-in">
 
             <div className="text-6xl mb-8 animate-bounce">
-                🚘
+                <Icon name="car" size={40} />
             </div>
 
             <div className="bg-brand-700/50 p-8 rounded-3xl backdrop-blur-sm max-w-sm w-full shadow-lg border border-brand-500/30">

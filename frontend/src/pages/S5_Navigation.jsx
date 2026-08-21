@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import Icon from '../components/Icon';
 
 import NavMap from '../components/NavMap';
 import { getRouteRecommendation } from '../api/naviApi';
@@ -355,8 +356,8 @@ export default function S5_Navigation() {
             {/* 회전 안내 카드 — 카카오가 준 안내문을 그대로 쓴다 */}
             <div className="absolute top-4 left-4 right-4 z-10">
                 <div className="bg-brand-600 text-white rounded-2xl p-5 shadow-2xl flex items-center gap-4">
-                    <div className="text-5xl leading-none flex-none w-14 text-center">
-                        {onRoute ? (step ? step.icon : '🏁') : '📍'}
+                    <div className="flex-none w-14 flex justify-center">
+                        <Icon name={onRoute ? (step ? step.icon : 'flag') : 'pin'} size={46} />
                     </div>
                     <div className="flex-1 min-w-0">
                         {onRoute ? (
@@ -428,7 +429,10 @@ export default function S5_Navigation() {
                                         : 'text-gray-600 hover:bg-gray-50'
                                 }`}
                             >
-                                {mode} {currentMode === mode && '✓'}
+                                <span className="flex items-center justify-between gap-2">
+                                    {mode}
+                                    {currentMode === mode && <Icon name="check" size={16} />}
+                                </span>
                             </button>
                         ))}
                     </div>
@@ -440,7 +444,7 @@ export default function S5_Navigation() {
                     onClick={() => setIsModeMenuOpen((open) => !open)}
                     className="bg-white text-brand-600 font-extrabold py-3 px-5 rounded-full shadow-lg border-2 border-brand-100 flex items-center gap-2 active:scale-95 transition-transform disabled:opacity-60"
                 >
-                    <span className="text-xl">✨</span>
+                    <Icon name="sliders" size={18} />
                     {isRerouting ? '경로 다시 찾는 중…' : currentMode}
                 </button>
 

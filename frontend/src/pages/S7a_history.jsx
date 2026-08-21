@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Icon from '../components/Icon';
 
 import { fetchTrips } from '../api/naviApi';
 
@@ -187,7 +188,7 @@ export default function S7a() {
                         </span>
 
                         <span className="text-lg font-bold mb-1 ml-1">
-                            달렸어요! 🚗
+                            달렸어요!
                         </span>
                     </div>
                 </div>
@@ -295,7 +296,7 @@ export default function S7a() {
                 {histories.length === 0 && (
                     <div className="text-center py-20 text-gray-400">
                         <span className="text-5xl block mb-4">
-                            📭
+                            <Icon name="inbox" size={44} />
                         </span>
 
                         <p className="font-bold">

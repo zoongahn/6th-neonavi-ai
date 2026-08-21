@@ -47,8 +47,8 @@ def test_axis_card_only_for_routes_strong_on_that_axis():
             {'sports': 0.2, 'comfort': 0.2, 'fuel': 0.2}]
     strong = reasons.build(0, feats, axes, W)
     weak = reasons.build(1, feats, axes, W)
-    assert any(c['icon'] == '🎯' for c in strong)
-    assert not any(c['icon'] == '🎯' for c in weak)
+    assert any(c['icon'] == 'axis' for c in strong)
+    assert not any(c['icon'] == 'axis' for c in weak)
 
 
 def test_high_relative_gap_but_low_absolute_is_rejected():

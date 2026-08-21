@@ -122,6 +122,9 @@
 }
 
 .location-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     background-color: #F3F4F6;
     color: #4B5563;
     padding: 10px 18px;

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { BRAND, INK_900 } from '../theme';
+import Icon from './Icon';
 
 import { loadKakaoMap } from '../utils/kakaoMap';
 import { cumulative, haversine, pointAtDistance } from '../utils/geo';
@@ -240,7 +241,7 @@ export default function RouteMap({
     if (errorMessage) {
         return (
             <div className="w-full h-full flex flex-col items-center justify-center bg-gray-200 px-6 text-center">
-                <span className="text-4xl mb-3">🗺️</span>
+                <span className="mb-3 text-gray-400"><Icon name="map" size={40} /></span>
                 <p className="text-gray-600 font-bold mb-1">지도를 표시할 수 없습니다</p>
                 <p className="text-xs text-gray-500">{errorMessage}</p>
             </div>

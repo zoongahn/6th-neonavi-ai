@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import Icon from '../components/Icon';
 
 import TopNavBar from '../components/TopNavBar';
 import RouteMap from '../components/RouteMap';
@@ -321,7 +322,7 @@ export default function S4_RouteResult() {
                 ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center opacity-40">
                         <span className="text-6xl mb-4">
-                            🗺️
+                            <Icon name="map" size={40} />
                         </span>
 
                         <p className="text-gray-500 font-bold text-xl">

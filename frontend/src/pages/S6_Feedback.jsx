@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import Icon from '../components/Icon';
 
 import { saveTrip, saveFeedback } from '../api/naviApi';
 import { readProfile } from '../utils/profileStorage';
@@ -522,7 +523,7 @@ export default function S6_Feedback() {
 
             {/* 도착 아이콘 */}
             <div className="w-16 h-16 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center text-3xl mb-6">
-                🏁
+                <Icon name="flag" size={34} />
             </div>
 
             {/* 제목 */}
@@ -571,8 +572,8 @@ export default function S6_Feedback() {
                                 aria-label={`${star}점`}
                             >
                                 {isSelected
-                                    ? '★'
-                                    : '☆'}
+                                    ? <Icon name="star" size={40} />
+                                    : <Icon name="star-o" size={40} />}
                             </button>
                         );
                     }

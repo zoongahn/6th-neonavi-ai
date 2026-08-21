@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import Icon from '../components/Icon';
 
 import TopNavBar from '../components/TopNavBar';
 import { explainRoute } from '../api/naviApi';
@@ -234,20 +235,15 @@ export default function RouteDetail() {
                         )}
 
                         {/* 근거 카드 */}
+                        {/* item.icon 은 reasons.py 가 준 **키**(clock/signal/...)다.
+                            예전엔 백엔드가 이모지를 직접 보내고 여기서 문자열에
+                            "snowflake"·"안전" 이 들어있는지 검사해 다른 이모지로
+                            바꿨는데, LLM 을 붙이려던 시절 잔재라 지금은 안 탄다. */}
                         {!isLoading && !errorMessage && aiReasons.length > 0 && aiReasons.map((item, idx) => {
-                            let displayIcon = "✨";
-                            const iconStr = String(item.icon || "");
-
-                            if (iconStr.includes("snowflake") || iconStr.includes("저감")) displayIcon = "❄️";
-                            else if (iconStr.includes("money") || iconStr.includes("bill") || iconStr.includes("경제성")) displayIcon = "💰";
-                            else if (iconStr.includes("shield") || iconStr.includes("안전")) displayIcon = "🛡️";
-                            else if (iconStr.includes("car") || iconStr.includes("주행")) displayIcon = "🚗";
-                            else if (iconStr.length <= 2) displayIcon = iconStr; // 이미 순수 이모지라면 그대로 사용
-
                             return (
                                 <div key={idx} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex gap-4 items-center">
-                                    <div className="text-3xl bg-gray-50 w-12 h-12 flex items-center justify-center rounded-full flex-none">
-                                        {displayIcon}
+                                    <div className="bg-brand-50 text-brand-600 w-12 h-12 flex items-center justify-center rounded-full flex-none">
+                                        <Icon name={item.icon || 'map'} size={24} />
                                     </div>
                                     <div>
                                         <h4 className="font-bold text-gray-900">{item.title}</h4>
