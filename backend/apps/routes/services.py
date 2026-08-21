@@ -276,8 +276,6 @@ def recommend(payload: dict) -> dict:
 ############################################
 ############### 추가 ########################
 
-from ai.xai_llm import generate_xai_reasons
-
 def explain_route_detail(payload: dict) -> dict:
     """
     특정 경로에 대한 LLM 맞춤형 분석(XAI) 결과 반환
@@ -290,6 +288,11 @@ def explain_route_detail(payload: dict) -> dict:
     route_axes = payload.get('axes', {})
     
     try:
+        # ⚠️ 여기서 import 한다. 최상위에 두면 gradio_client(+httpx·huggingface_hub)
+        #    를 **모든 콜드스타트마다** 읽는다(로컬 실측 107ms). 추천 근거는 이제
+        #    추천 계산에서 나오므로 이 경로는 폴백일 뿐이라, 쓸 때만 읽는다.
+        from ai.xai_llm import generate_xai_reasons
+
         # LLM에게 텍스트 생성을 요청 (2~3초 소요)
         reasons = generate_xai_reasons(profile, mode, route_axes)
         return {"recommend_reasons": reasons}
