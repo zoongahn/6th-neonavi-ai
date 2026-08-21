@@ -12,7 +12,7 @@ import React from 'react';
     의미를 갖는 것, 신호등 등처럼 점이 필요한 것 때문이다.
 */
 
-const P = (stroke, fill = []) => ({ stroke, fill });
+const P = (stroke, fill = [], strokeWidth = null) => ({ stroke, fill, strokeWidth });
 
 export const ICONS = {
     // ── 지도·경로 ──────────────────────────────────────────────
@@ -61,6 +61,11 @@ export const ICONS = {
             'M16.4 16.8m-1.6 0a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0',
         ],
     ),
+    /* 굽이 — 근거 카드의 '급커브가 적은 편이에요'. 아래 회전 안내(turn-right 등)와
+       뜻이 다르다. 저건 '여기서 우회전하라'는 지시고 이건 '길이 굽었다'는 성질이다.
+       그래서 화살표가 아니라 S 자 도로로 그린다. */
+    curve: P(['M12 21C18 17.5 18 13.5 12 12S6 7 12 3'], [], 2.4),
+
     /* 회전 안내(S5). 예전엔 ↰ ↱ 같은 문자를 썼는데 Wanted Sans 에 그 글자가
        없어서 좌·우회전만 대체 글꼴로 떨어져 나머지와 다른 그림이 나왔다. */
     'turn-right': P(['M4.5 20v-7.5a4 4 0 0 1 4-4h8.5', 'M14 5l4 3.5-4 3.5']),
@@ -125,16 +130,20 @@ export const ICONS = {
     search: P(['M11 11m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0', 'M16.2 16.2L21 21']),
     timer: P(['M12 12m-8.5 0a8.5 8.5 0 1 0 17 0a8.5 8.5 0 1 0-17 0', 'M12 6.8V12l3.4 2',
         'M12 3.5v-2', 'M9 1.5h6']),
+
+    // 없는 키가 왔을 때. 빈 자리보다는 뭐라도 있는 게 낫다.
+    __fallback: P(['M12 12m-8.5 0a8.5 8.5 0 1 0 17 0a8.5 8.5 0 1 0-17 0']),
 };
 
 export default function Icon({ name, size = 20, className = '', strokeWidth = 2, ...rest }) {
-    const icon = ICONS[name];
-    if (!icon) {
-        // 키가 틀리면 조용히 사라지는 대신 개발 중에 눈에 띄게 둔다
-        if (process.env.NODE_ENV !== 'production') {
-            console.warn(`[Icon] 없는 아이콘: ${name}`);
-        }
-        return null;
+    /*
+        없는 키가 오면 예전엔 null 을 돌려줬다. 그러면 카드 왼쪽이 **통째로 비어**
+        레이아웃만 어긋난 채 아무 단서가 안 남는다(실제로 reasons.py 의 'turn' 이
+        Icon 쪽 이름 변경을 못 따라와 그렇게 됐다). 자리는 지키고 티가 나게 둔다.
+    */
+    const icon = ICONS[name] || ICONS.__fallback;
+    if (!ICONS[name] && process.env.NODE_ENV !== 'production') {
+        console.warn(`[Icon] 없는 아이콘: ${name}`);
     }
 
     return (
@@ -153,7 +162,7 @@ export default function Icon({ name, size = 20, className = '', strokeWidth = 2,
                     d={d}
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth={strokeWidth}
+                    strokeWidth={icon.strokeWidth || strokeWidth}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                 />

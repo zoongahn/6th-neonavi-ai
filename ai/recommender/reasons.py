@@ -47,7 +47,7 @@ _SPECS = (
          fmt=lambda v: '',
          why='막히는 구간이 적어 도착 시각을 예측하기 좋아요.',
          min_abs=0.03, min_rel=0.15),
-    dict(key='curvature', icon='turn', lower_better=True,
+    dict(key='curvature', icon='curve', lower_better=True,
          title_best='급커브가 가장 적어요', title_good='급커브가 적은 편이에요',
          fmt=lambda v: '',
          why='굽이가 완만해 핸들 조작이 적고 승차감이 안정적이에요.',
