@@ -373,29 +373,40 @@ export default function S6_Feedback() {
 
     const [rating, setRating] = useState(0);
 
+    /*
+        별점 1~5 를 색으로도 구분한다. 예전엔 3단계였는데 1~2 점(amber-500)과
+        3 점(amber-400)이 나란히 놓지 않으면 구분이 안 돼 단계를 나눈 의미가 없었다.
+
+        따뜻한 색(빨강→노랑) 대신 회색→브랜드로 간다. 낮은 점수에 경고색을 칠하면
+        **솔직한 평가를 누르기 어려워지고**, 우리는 이 만족도를 층3 지표로 실제로
+        집계하므로 응답이 위로 쏠리면 수치가 오염된다. 회색은 '나쁨' 이 아니라
+        '아직 안 채워짐' 으로 읽힌다.
+    */
+    const RATING_TIERS = [
+        { star: 'text-rating-1', btn: 'bg-rating-1', text: '별로였어요' },
+        { star: 'text-rating-2', btn: 'bg-rating-2', text: '아쉬웠어요' },
+        { star: 'text-rating-3', btn: 'bg-rating-3', text: '무난했어요' },
+        { star: 'text-rating-4', btn: 'bg-rating-4', text: '좋았어요' },
+        { star: 'text-rating-5', btn: 'bg-rating-5', text: '아주 좋았어요' },
+    ];
+
     const getFeedbackConfig = () => {
         if (rating === 0) {
-            return { starColor: 'text-gray-300', btnColor: 'bg-gray-200 text-gray-400', btnText: '피드백 보내기' };
-        }
-        if (rating <= 2) {
+            // 미선택도 빈 별과 같은 회색으로. 채움/테두리 로 이미 구분되므로
+            // 색까지 옅게 하면 별이 몇 개인지 잘 안 보인다.
             return {
-                starColor: 'text-amber-500',
-                btnColor:
-                    'bg-amber-500 text-white shadow-lg',
-                btnText:
-                    `별 ${rating}개 · 아쉬워요`
+                starColor: 'text-gray-300',
+                btnColor: 'bg-gray-200 text-gray-400',
+                btnText: '피드백 보내기',
             };
         }
-        if (rating === 3) {
-            return {
-                starColor: 'text-amber-400',
-                btnColor:
-                    'bg-amber-400 text-white shadow-lg',
-                btnText:
-                    '별 3개 · 무난했어요'
-            };
-        }
-        return { starColor: 'text-brand-600', btnColor: 'bg-brand-600 text-white shadow-lg', btnText: `별 ${rating}개 · 아주 만족해요!` };
+
+        const tier = RATING_TIERS[rating - 1];
+        return {
+            starColor: tier.star,
+            btnColor: `${tier.btn} text-white shadow-lg`,
+            btnText: `별 ${rating}개 · ${tier.text}`,
+        };
     };
 
     const config = getFeedbackConfig();
@@ -555,7 +566,6 @@ export default function S6_Feedback() {
                                     )
                                 }
                                 className={`
-                                    text-5xl
                                     focus:outline-none
                                     transition-colors
                                     duration-200
