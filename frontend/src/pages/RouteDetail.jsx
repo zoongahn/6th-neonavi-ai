@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
 import TopNavBar from '../components/TopNavBar';
+import { explainRoute } from '../api/naviApi';
 
 /*
     성향 축은 sports/comfort/fuel 셋뿐이다. '안전성'은 2026-07-18 계약 개정에서
@@ -148,21 +149,14 @@ export default function RouteDetail() {
             setIsLoading(true);
             setErrorMessage('');
             try {
-                const response = await fetch('http://127.0.0.1:8000/api/routes/explain/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        profile: tripData.profile,
-                        mode: tripData.mode,
-                        axes: axes || displayRoute.axes || {}
-                    }),
+                // ⚠️ 예전엔 여기만 http://127.0.0.1:8000 을 직접 불렀다.
+                // 로컬에서는 돌지만 배포하면 이 호출만 죽는다(나머지는 전부
+                // naviApi 의 REACT_APP_API_BASE_URL 을 쓴다).
+                const data = await explainRoute({
+                    profile: tripData.profile,
+                    mode: tripData.mode,
+                    axes: axes || displayRoute.axes || {}
                 });
-
-                if (!response.ok) {
-                    throw new Error('AI 분석 데이터를 불러오지 못했습니다.');
-                }
-
-                const data = await response.json();
                 setAiReasons(data.recommend_reasons || []);
             } catch (error) {
                 console.error("AI 분석 호출 에러:", error);

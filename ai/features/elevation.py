@@ -23,6 +23,7 @@ _PREC = 4        # 캐시 키 좌표 반올림 자리(~11m)
 _DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
 _CACHE_PATH = os.path.join(_DATA_DIR, 'elevation_cache.json')
 _cache = None
+_cache_writable = True     # 읽기전용 FS 를 만나면 False (경고 1회만)
 
 # ── 로컬 DEM (SRTMGL1 .hgt.zip, 임세희 제공) — hosted API 쿼터 회피 ──
 _DEM_DIR = os.path.join(_DATA_DIR, 'public', 'dem', 'raw_dem')
@@ -77,11 +78,23 @@ def _load_cache() -> dict:
 
 
 def _save_cache() -> None:
+    """고도 캐시를 디스크에 남긴다. 실패해도 추천을 막지 않는다.
+
+    ⚠️ 서버리스(Vercel 등)는 파일시스템이 읽기전용이라 여기서 터진다. 캐시는
+    다음 요청을 빠르게 하려는 최적화일 뿐이므로, 못 쓰면 메모리 캐시만 쓰고
+    넘어간다(그 인스턴스가 살아 있는 동안은 여전히 효과가 있다).
+    """
     if _cache is None:
         return
-    os.makedirs(_DATA_DIR, exist_ok=True)
-    with open(_CACHE_PATH, 'w', encoding='utf-8') as f:
-        json.dump(_cache, f)
+    try:
+        os.makedirs(_DATA_DIR, exist_ok=True)
+        with open(_CACHE_PATH, 'w', encoding='utf-8') as f:
+            json.dump(_cache, f)
+    except OSError as exc:
+        global _cache_writable
+        if _cache_writable:
+            _cache_writable = False       # 매 요청마다 같은 경고를 찍지 않는다
+            print(f'고도 캐시를 저장할 수 없습니다(읽기전용 파일시스템?): {exc}')
 
 
 def _key(lng: float, lat: float) -> str:
