@@ -20,6 +20,9 @@ import {
 
 
 import Button from '../components/Button';
+import TopNavBar from '../components/TopNavBar';
+
+
 export default function S1() {
     const navigate = useNavigate();
     const location = useLocation();
@@ -137,12 +140,21 @@ export default function S1() {
 
 
     return (
-        <div className="p-6 bg-gray-50 min-h-screen pb-24">
-            <h1 className="text-2xl font-bold mb-2 mt-2">
-                {isFromMyPage
-                    ? '프로필 수정'
-                    : '기본 정보를 알려주세요'}
-            </h1>
+        <div className="bg-gray-50 min-h-screen pb-24">
+            {/*
+                온보딩으로 들어왔을 때는 뒤로 갈 곳이 없다(첫 화면이 시작 버튼뿐).
+                반면 **마이페이지에서 수정하러 들어오면 뒤로가기가 있어야 한다** —
+                없으면 저장하기 전엔 이 화면을 빠져나갈 수 없었다.
+                상단바를 쓸 때는 제목이 거기 있으므로 아래 h1 을 겹쳐 두지 않는다.
+            */}
+            {isFromMyPage && <TopNavBar title="프로필 수정" />}
+
+            <div className="p-6">
+            {!isFromMyPage && (
+                <h1 className="text-2xl font-bold mb-2 mt-2">
+                    기본 정보를 알려주세요
+                </h1>
+            )}
 
             {/* 어디서 왔는지에 따라 왜 이 화면이 필요한지 알려 준다 */}
             <p className="text-sm text-gray-500 font-medium mb-8 leading-relaxed">
@@ -363,6 +375,7 @@ export default function S1() {
                             ? '저장하기'
                             : '다음으로'}
                 </Button>
+            </div>
             </div>
         </div>
     );
