@@ -167,6 +167,15 @@ def train(pairs_path=None, ckpt_path=None, epochs=60, lr=1e-3,
         'metrics': {'train': tr_acc, 'val': va_acc, 'test': te_acc},
     }, ckpt_path)
 
+    # 서빙은 torch 없이 가중치 JSON 으로 돈다(model_a 의 pure 백엔드).
+    # 여기서 같이 뽑아 두지 않으면, 재학습해도 배포본이 조용히 옛 모델로 남는다.
+    try:
+        from .export_weights import export
+        weights_path = export(ckpt_path)
+    except Exception as exc:
+        weights_path = None
+        print(f'⚠️ 가중치 JSON 추출 실패({exc}) — `python -m ai.export_weights` 로 직접 뽑을 것')
+
     if verbose:
         print(f'\n체크포인트 저장: {ckpt_path}')
         print(f'  held-out pairwise 정확도(결정적 쌍):')
