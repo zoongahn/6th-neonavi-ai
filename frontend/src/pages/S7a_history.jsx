@@ -153,7 +153,7 @@ export default function S7a() {
 
     return (
         <div className="relative w-full min-h-[100dvh] bg-gray-100 flex flex-col">
-            {/* 상단 네비게이션 바 */}
+            {/* 상단 내비게이션 바 */}
             <div className="sticky top-0 z-50 bg-white px-4 py-4 flex items-center border-b border-gray-200 shadow-sm">
                 <button
                     type="button"

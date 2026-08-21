@@ -301,7 +301,7 @@ export default function S4_RouteResult() {
     return (
         <div className="relative w-full h-[100dvh] overflow-hidden flex flex-col bg-gray-100">
 
-            {/* 상단 네비게이션 */}
+            {/* 상단 내비게이션 */}
             <div className="relative z-50 bg-white">
                 <TopNavBar title="경로 탐색 결과" />
             </div>
