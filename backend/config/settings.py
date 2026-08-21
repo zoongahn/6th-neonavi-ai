@@ -87,6 +87,29 @@ DATABASES = {
     }
 }
 
+# DATABASE_URL 을 주면 Postgres 를 쓴다(안 주면 위 sqlite 그대로).
+#
+# ⚠️ 서버리스는 sqlite 가 영속되지 않는다. 인스턴스가 새로 뜰 때마다 빈 DB 라
+#    주행 기록(추천 1순위 vs 실제 선택 = 층3 지표)이 남지 않는다.
+# ⚠️ 접속 문자열은 **풀링된 것**(pgbouncer)을 쓸 것. 서버리스는 인스턴스가 여럿
+#    떠서 직접 접속을 쓰면 Postgres 접속 한도를 금방 넘긴다.
+#    CONN_MAX_AGE=0 도 같은 이유다 — 연결을 붙들고 있으면 안 된다.
+_db_url = os.environ.get('DATABASE_URL', '').strip()
+if _db_url:
+    from urllib.parse import unquote, urlparse
+
+    _u = urlparse(_db_url)
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': _u.path.lstrip('/'),
+        'USER': unquote(_u.username or ''),
+        'PASSWORD': unquote(_u.password or ''),
+        'HOST': _u.hostname or '',
+        'PORT': str(_u.port or 5432),
+        'CONN_MAX_AGE': 0,
+        'OPTIONS': {'sslmode': os.environ.get('DATABASE_SSLMODE', 'require')},
+    }
+
 # 프론트 연동. 배포에서는 CORS_ALLOWED_ORIGINS 로 프론트 주소만 허용한다.
 # (지정하지 않으면 개발처럼 전체 허용 — 로컬 실행이 안 깨지도록)
 CORS_ALLOWED_ORIGINS = _env_list('CORS_ALLOWED_ORIGINS')

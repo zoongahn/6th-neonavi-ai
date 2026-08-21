@@ -2,8 +2,9 @@ Django>=5.0,<5.2
 djangorestframework>=3.15
 django-cors-headers>=4.4
 requests>=2.32
-# PostgreSQL 배포 시 (개발 중엔 기본 sqlite 사용)
-# psycopg2-binary>=2.9
+# PostgreSQL — DATABASE_URL 을 주면 쓴다. 로컬(sqlite)에서는 필요 없다.
+# 서버리스는 sqlite 가 영속되지 않아 주행 기록이 남지 않는다.
+psycopg2-binary>=2.9
 
 # ── AI 추천 실행에 필요 — ai/requirements.txt 와 동일 계열 ──
 # 추천 뷰가 ai 모듈을 직접 import 하므로 백엔드 환경에도 있어야 한다.
