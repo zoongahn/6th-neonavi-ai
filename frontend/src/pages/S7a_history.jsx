@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import Icon from '../components/Icon';
 
 import { fetchTrips } from '../api/naviApi';
+
+import TopNavBar from '../components/TopNavBar';
+
 
 const HISTORY_STORAGE_KEY = 'neonaviDriveHistories';
 
@@ -79,7 +82,6 @@ const formatFee = (fee) => {
 };
 
 export default function S7a() {
-    const navigate = useNavigate();
 
     /*
         먼저 로컬 기록으로 즉시 그리고, 서버 기록이 오면 그쪽으로 교체한다.
@@ -134,7 +136,7 @@ export default function S7a() {
                         key={i}
                         className={`w-4 h-4 ${
                             i < score
-                                ? 'text-yellow-400'
+                                ? 'text-amber-400'
                                 : 'text-gray-200'
                         }`}
                         fill="currentColor"
@@ -153,32 +155,19 @@ export default function S7a() {
 
     return (
         <div className="relative w-full min-h-[100dvh] bg-gray-100 flex flex-col">
-            {/* 상단 네비게이션 바 */}
-            <div className="sticky top-0 z-50 bg-white px-4 py-4 flex items-center border-b border-gray-200 shadow-sm">
-                <button
-                    type="button"
-                    onClick={() => navigate(-1)}
-                    className="text-xl font-bold mr-4 text-gray-800"
-                >
-                    ←
-                </button>
-
-                <h2 className="text-lg font-bold text-gray-800">
-                    주행 기록 및 피드백
-                </h2>
-            </div>
+            <TopNavBar title="주행 기록 및 피드백" sticky />
 
             {/* 메인 콘텐츠 */}
             <div className="flex-1 px-4 pt-6 pb-10">
 
                 {/* 누적 주행거리 */}
-                <div className="bg-indigo-600 rounded-2xl p-6 shadow-md mb-6 text-white">
-                    <p className="text-indigo-100 text-sm font-medium mb-1">
+                <div className="bg-brand-600 rounded-2xl p-6 shadow-md mb-6 text-white">
+                    <p className="text-brand-100 text-sm font-medium mb-1">
                         지금까지 너네비와 함께
                     </p>
 
                     <div className="flex items-end gap-1">
-                        <span className="text-4xl font-black tracking-tight">
+                        <span className="text-4xl font-black tracking-tight tabular-nums">
                             {totalDistance}
                         </span>
 
@@ -187,7 +176,7 @@ export default function S7a() {
                         </span>
 
                         <span className="text-lg font-bold mb-1 ml-1">
-                            달렸어요! 🚗
+                            달렸어요!
                         </span>
                     </div>
                 </div>
@@ -221,7 +210,7 @@ export default function S7a() {
                                         '출발지 정보 없음'}
 
                                     <svg
-                                        className="w-4 h-4 text-indigo-500"
+                                        className="w-4 h-4 text-brand-500"
                                         fill="none"
                                         stroke="currentColor"
                                         viewBox="0 0 24 24"
@@ -269,7 +258,7 @@ export default function S7a() {
                                         선택 모드
                                     </p>
 
-                                    <p className="font-bold text-indigo-600">
+                                    <p className="font-bold text-brand-600">
                                         {history.mode ||
                                             '추천 경로'}
                                     </p>
@@ -295,7 +284,7 @@ export default function S7a() {
                 {histories.length === 0 && (
                     <div className="text-center py-20 text-gray-400">
                         <span className="text-5xl block mb-4">
-                            📭
+                            <Icon name="inbox" size={44} />
                         </span>
 
                         <p className="font-bold">

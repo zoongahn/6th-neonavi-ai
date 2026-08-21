@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import TopNavBar from '../components/TopNavBar';
 
+import Button from '../components/Button';
 const TRIP_STORAGE_KEY = 'neonaviTrip';
 
 function readSavedTrip() {
@@ -73,7 +74,7 @@ export default function S3_RouteOption() {
                     <p className="text-xs text-gray-500 mb-2">입력한 경로</p>
                     <p className="font-bold text-gray-900 break-words">
                         {tripData.departure || '출발지'}
-                        <span className="mx-2 text-indigo-500">→</span>
+                        <span className="mx-2 text-brand-500">→</span>
                         {tripData.destination || '도착지'}
                     </p>
                     <p className="text-xs text-gray-500 mt-2">
@@ -96,7 +97,7 @@ export default function S3_RouteOption() {
                             type="checkbox"
                             checked={autoRecommend}
                             onChange={handleAutoRecommend}
-                            className="w-6 h-6 accent-indigo-600 cursor-pointer flex-none"
+                            className="w-6 h-6 accent-brand-600 cursor-pointer flex-none"
                             aria-label="AI 성향 자동 추천"
                         />
                     </div>
@@ -118,8 +119,8 @@ export default function S3_RouteOption() {
                                         onClick={() => handleModeSelect(item)}
                                         className={`flex-1 py-3 rounded-xl text-sm font-bold border transition-all ${
                                             isSelected
-                                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                                                : 'bg-white text-gray-700 border-gray-200 hover:border-indigo-300'
+                                                ? 'bg-brand-600 text-white border-brand-600 shadow-sm'
+                                                : 'bg-white text-gray-700 border-gray-200 hover:border-brand-300'
                                         }`}
                                         aria-pressed={isSelected}
                                     >
@@ -133,7 +134,7 @@ export default function S3_RouteOption() {
                             <p className="text-xs text-gray-500 mb-1">
                                 현재 설정
                             </p>
-                            <p className="font-bold text-indigo-600">
+                            <p className="font-bold text-brand-600">
                                 {autoRecommend
                                     ? 'AI 자동 추천'
                                     : `${mode} 모드`}
@@ -144,13 +145,13 @@ export default function S3_RouteOption() {
             </main>
 
             <div className="w-full bg-white px-6 pt-3 pb-8">
-                <button
+                <Button
                     type="button"
                     onClick={handleRecommend}
-                    className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-sm active:bg-indigo-700 transition-colors"
+                    
                 >
                     분석하고 경로 추천받기
-                </button>
+                </Button>
             </div>
         </div>
     );

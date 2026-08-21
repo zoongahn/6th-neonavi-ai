@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import BrandMark from '../components/BrandMark';
+import Icon from '../components/Icon';
 
 import TopNavBar from '../components/TopNavBar';
 import PlaceInput from '../components/PlaceInput';
@@ -66,7 +68,7 @@ const Header = () => {
     return (
         <div className="header mt-2">
             <div className="logo-section">
-                <div className="logo-square" />
+                <BrandMark size={36} />
 
                 <h1 className="logo-text">
                     너네비
@@ -79,7 +81,7 @@ const Header = () => {
                 onClick={() => navigate('/mypage')}
             >
                 <span className="user-icon">
-                    👤
+                    <Icon name="user" size={18} />
                 </span>
 
                 <span>
@@ -242,7 +244,7 @@ export default function S2_Home() {
             ? [
                   {
                       id: 'home',
-                      label: '🏠 집',
+                      label: '집', icon: 'home',
                       value:
                           savedLocationData.home.name,
                       place:
@@ -256,7 +258,7 @@ export default function S2_Home() {
             ? [
                   {
                       id: 'company',
-                      label: '🏢 회사',
+                      label: '회사', icon: 'building',
                       value:
                           savedLocationData.company.name,
                       place:
@@ -321,7 +323,7 @@ export default function S2_Home() {
                 {/* 출발지 */}
                 <div className="mb-3">
                     <PlaceInput
-                        icon="📍"
+                        icon="pin"
                         placeholder="출발지"
                         text={departure}
                         onTextChange={(value) => {
@@ -348,7 +350,7 @@ export default function S2_Home() {
                 {/* 도착지 */}
                 <div className="mb-3">
                     <PlaceInput
-                        icon="🏁"
+                        icon="flag"
                         placeholder="도착지"
                         text={destination}
                         onTextChange={(value) => {
@@ -387,6 +389,9 @@ export default function S2_Home() {
                                         )
                                     }
                                 >
+                                    {location.icon && (
+                                        <Icon name={location.icon} size={15} />
+                                    )}
                                     {location.label}
                                 </button>
                             )
@@ -423,7 +428,7 @@ export default function S2_Home() {
                                     ${
                                         passenger ===
                                         item
-                                            ? 'bg-indigo-600 text-white shadow-md'
+                                            ? 'bg-brand-600 text-white shadow-md'
                                             : 'border border-gray-200 text-gray-600 bg-white'
                                     }
                                 `}
@@ -439,7 +444,7 @@ export default function S2_Home() {
                     <label className="block text-sm font-bold text-gray-700 mb-3">
                         짐은 얼마나 싣나요?
 
-                        <span className="text-indigo-600 ml-2">
+                        <span className="text-brand-600 ml-2">
                             {loadKg} kg
                         </span>
                     </label>
@@ -477,7 +482,7 @@ export default function S2_Home() {
                                     ${
                                         loadKg ===
                                         item.value
-                                            ? 'bg-indigo-600 text-white shadow-md'
+                                            ? 'bg-brand-600 text-white shadow-md'
                                             : 'border border-gray-200 text-gray-600 bg-white'
                                     }
                                 `}
@@ -503,12 +508,6 @@ export default function S2_Home() {
                 >
                     경로 찾기
                 </button>
-            </div>
-
-            <div className="device-footer">
-                <div className="footer-panel">
-                    너네비: 경로 입력
-                </div>
             </div>
         </>
     );

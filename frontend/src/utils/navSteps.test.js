@@ -3,35 +3,35 @@ import { currentStep, prepareSteps, stepIcon } from './navSteps';
 // 실제 카카오 응답에서 가져온 안내문들 (강남 → 판교)
 describe('stepIcon', () => {
     it.each([
-        ['강남세브란스 방면으로 우회전', '↱'],
-        ['판교테크노밸리 방면으로 좌회전', '↰'],
-        ['분당내곡로 내곡동 방면으로 유턴', '⟲'],
-        ['12시 방향', '↑'],
-        ['오른쪽에 도시고속도로 출구', '⤵'],
-        ['분당 판교IC 방면으로 왼쪽에 도시고속도로 입구', '⤴'],
-        ['왼쪽 10시 방향', '↖'],
-        ['오른쪽 2시 방향', '↗'],
-        ['목적지', '🏁'],
+        ['강남세브란스 방면으로 우회전', 'turn-right'],
+        ['판교테크노밸리 방면으로 좌회전', 'turn-left'],
+        ['분당내곡로 내곡동 방면으로 유턴', 'uturn'],
+        ['12시 방향', 'straight'],
+        ['오른쪽에 도시고속도로 출구', 'ramp-out'],
+        ['분당 판교IC 방면으로 왼쪽에 도시고속도로 입구', 'ramp-in'],
+        ['왼쪽 10시 방향', 'slight-left'],
+        ['오른쪽 2시 방향', 'slight-right'],
+        ['목적지', 'flag'],
     ])('%s → %s', (guidance, icon) => {
         expect(stepIcon(guidance)).toBe(icon);
     });
 
     it('모르는 안내문은 직진 화살표로 안전하게 떨어진다', () => {
-        expect(stepIcon('알 수 없는 안내')).toBe('↑');
-        expect(stepIcon('')).toBe('↑');
+        expect(stepIcon('알 수 없는 안내')).toBe('straight');
+        expect(stepIcon('')).toBe('straight');
     });
 
     it('"오른쪽에 ... 출구"는 방향어보다 출구가 이긴다', () => {
         // 규칙 순서가 뒤집히면 ↗ 가 나온다
-        expect(stepIcon('오른쪽에 도시고속도로 출구')).toBe('⤵');
+        expect(stepIcon('오른쪽에 도시고속도로 출구')).toBe('ramp-out');
     });
 
     it('12시(직진)가 2시(우측)로 새지 않는다', () => {
         // '12시' 안에 '2시'가 들어 있다. 이 회귀를 실제로 한 번 냈다.
-        expect(stepIcon('12시 방향')).toBe('↑');
-        expect(stepIcon('11시 방향')).toBe('↖');
-        expect(stepIcon('2시 방향')).toBe('↗');
-        expect(stepIcon('1시 방향')).toBe('↗');
+        expect(stepIcon('12시 방향')).toBe('straight');
+        expect(stepIcon('11시 방향')).toBe('slight-left');
+        expect(stepIcon('2시 방향')).toBe('slight-right');
+        expect(stepIcon('1시 방향')).toBe('slight-right');
     });
 });
 

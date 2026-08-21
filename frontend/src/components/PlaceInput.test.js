@@ -19,7 +19,7 @@ function Harness({ initialText = '' }) {
     return (
         <>
             <PlaceInput
-                icon="📍"
+                icon="pin"
                 placeholder="출발지"
                 text={text}
                 onTextChange={setText}

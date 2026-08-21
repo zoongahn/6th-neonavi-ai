@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import Icon from '../components/Icon';
 
 import TopNavBar from '../components/TopNavBar';
 import RouteMap from '../components/RouteMap';
@@ -9,6 +10,7 @@ import { hasUsableProfile, readProfile } from '../utils/profileStorage';
 import { buildRecommendRequest } from '../utils/buildRecommendRequest';
 import { readTrip, writeTrip } from '../utils/tripStorage';
 
+import Button from '../components/Button';
 // 상세 화면에 다녀와도 경로를 다시 추천받지 않도록 결과를 잠깐 보관한다.
 // (여정 자체는 tripStorage 가 관리하므로 여기엔 추천 결과만 둔다.)
 const ROUTE_RESULT_CACHE_KEY = 'neonaviRouteResultSnapshot';
@@ -301,7 +303,7 @@ export default function S4_RouteResult() {
     return (
         <div className="relative w-full h-[100dvh] overflow-hidden flex flex-col bg-gray-100">
 
-            {/* 상단 네비게이션 */}
+            {/* 상단 내비게이션 */}
             <div className="relative z-50 bg-white">
                 <TopNavBar title="경로 탐색 결과" />
             </div>
@@ -321,7 +323,7 @@ export default function S4_RouteResult() {
                 ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center opacity-40">
                         <span className="text-6xl mb-4">
-                            🗺️
+                            <Icon name="map" size={40} />
                         </span>
 
                         <p className="text-gray-500 font-bold text-xl">
@@ -344,7 +346,7 @@ export default function S4_RouteResult() {
                     <p className="font-bold text-gray-900 break-words">
                         {tripData.departure || '출발지'}
 
-                        <span className="mx-2 text-indigo-500">
+                        <span className="mx-2 text-brand-500">
                             →
                         </span>
 
@@ -360,7 +362,7 @@ export default function S4_RouteResult() {
 
                     <div className="flex items-center justify-between">
 
-                        <p className="font-extrabold text-indigo-600">
+                        <p className="font-extrabold text-brand-600">
                             {autoRecommend
                                 ? 'AI 자동 추천'
                                 : selectedMode}
@@ -383,7 +385,7 @@ export default function S4_RouteResult() {
                                 ? ' 기준으로 정렬했습니다'
                                 : '을(를) 우선하는 성향입니다'}
                             {preference.unanimous && (
-                                <span className="block text-[11px] text-gray-400 mt-0.5">
+                                <span className="block text-xxs text-gray-400 mt-0.5">
                                     이 구간은 어떤 성향이어도 같은 경로가 1순위입니다
                                 </span>
                             )}
@@ -417,20 +419,20 @@ export default function S4_RouteResult() {
                 {/* 프로필 없음 — 에러가 아니라 '할 일'이라 별도로 안내한다 */}
                 {needsProfile && (
                     <div className="px-4 pb-4">
-                        <div className="bg-white rounded-2xl border border-indigo-200 px-4 py-5">
+                        <div className="bg-white rounded-2xl border border-brand-200 px-4 py-5">
                             <p className="font-bold text-gray-900 mb-1">기본 정보가 필요해요</p>
                             <p className="text-xs text-gray-600 mb-4">
                                 나이·성별·차종·연식으로 운전 성향을 추론합니다. 한 번만 입력하면 돼요.
                             </p>
-                            <button
+                            <Button
                                 type="button"
                                 onClick={() =>
                                     navigate('/profile', { state: { profileRequired: true } })
                                 }
-                                className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold active:bg-indigo-700 transition-colors"
+                                size="md"
                             >
                                 기본 정보 입력하기
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 )}
@@ -482,7 +484,7 @@ export default function S4_RouteResult() {
                                 }}
                                 className={`min-w-[180px] flex-shrink-0 p-4 rounded-2xl cursor-pointer transition-all bg-white shadow-sm ${
                                     isSelected
-                                        ? 'border-[2.5px] border-indigo-600'
+                                        ? 'border-[2.5px] border-brand-600'
                                         : 'border border-gray-200 opacity-90'
                                 }`}
                             >
@@ -490,9 +492,9 @@ export default function S4_RouteResult() {
                                 <div className="flex justify-between items-start gap-2 mb-1">
 
                                     <span
-                                        className={`font-extrabold text-[15px] ${
+                                        className={`font-extrabold text-sm ${
                                             isSelected
-                                                ? 'text-indigo-600'
+                                                ? 'text-brand-600'
                                                 : 'text-gray-700'
                                         }`}
                                     >
@@ -502,7 +504,7 @@ export default function S4_RouteResult() {
                                     {/* 상세 버튼 */}
                                     <button
                                         type="button"
-                                        className="flex-none text-xs font-bold text-white bg-indigo-600 px-3 py-1.5 rounded-lg shadow-sm active:bg-indigo-700 transition-colors"
+                                        className="flex-none text-xs font-bold text-white bg-brand-600 px-3 py-1.5 rounded-lg shadow-sm active:bg-brand-700 transition-colors"
                                         onClick={(event) => {
                                             event.stopPropagation();
 
@@ -574,7 +576,7 @@ export default function S4_RouteResult() {
                                                     key={
                                                         label
                                                     }
-                                                    className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded"
+                                                    className="text-xxs font-bold text-brand-700 bg-brand-50 border border-brand-100 px-1.5 py-0.5 rounded"
                                                 >
                                                     {label}{' '}
                                                     우선이라면
@@ -616,21 +618,21 @@ export default function S4_RouteResult() {
                         onClick={() =>
                             setIsTimeModalOpen(true)
                         }
-                        className="flex-none w-1/3 bg-gray-500 text-white py-4 rounded-xl font-bold text-[15px] shadow-sm active:bg-gray-600 transition-colors"
+                        className="flex-none w-1/3 bg-gray-500 text-white py-4 rounded-xl font-bold text-sm shadow-sm active:bg-gray-600 transition-colors"
                     >
                         다른시간 출발
                     </button>
 
-                    <button
+                    <Button
                         type="button"
                         onClick={
                             handleStartNavigation
                         }
                         disabled={!selectedRoute}
-                        className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-md active:bg-indigo-700 transition-colors disabled:bg-gray-400"
+                        fullWidth={false} className="flex-1"
                     >
                         안내시작
-                    </button>
+                    </Button>
 
                 </div>
             </div>

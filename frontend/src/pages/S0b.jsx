@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Icon from '../components/Icon';
 
 export default function S0b_LocationPermission() {
     const navigate = useNavigate();
@@ -22,7 +23,7 @@ export default function S0b_LocationPermission() {
             (position) => {
                 const { latitude, longitude } = position.coords;
 
-                console.log(`📍 위치 획득 성공! 위도: ${latitude}, 경도: ${longitude}`);
+                console.log(`위치 획득 성공! 위도: ${latitude}, 경도: ${longitude}`);
 
                 // 이 데이터를 프론트엔드 어딘가에 보관해야 다음 화면(S2 홈)에서 출발지로 띄워줄 수 있습니다.
                 // 지금은 백엔드 연동 전 가장 간단하게 브라우저 저장소(localStorage)에 담아두겠습니다.
@@ -60,8 +61,8 @@ export default function S0b_LocationPermission() {
         <div className="bg-white min-h-screen flex flex-col justify-between p-6">
 
             <div className="flex-1 flex flex-col justify-center items-center text-center mt-10">
-                <div className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center text-5xl mb-6 shadow-sm">
-                    📍
+                <div className="w-24 h-24 bg-brand-50 rounded-full flex items-center justify-center text-5xl mb-6 shadow-sm">
+                    <Icon name="pin" size={28} />
                 </div>
 
                 <h1 className="text-2xl font-extrabold text-gray-900 mb-4">
@@ -74,7 +75,7 @@ export default function S0b_LocationPermission() {
 
                 <div className="bg-gray-50 rounded-2xl p-5 w-full text-left border border-gray-100">
                     <div className="flex items-start gap-3">
-                        <span className="text-indigo-600 text-xl mt-0.5">🎯</span>
+                        <span className="text-brand-600 mt-0.5"><Icon name="axis" size={18} /></span>
                         <div>
                             <h3 className="text-sm font-bold text-gray-800">정확한 출발지 자동 설정</h3>
                             <p className="text-xs text-gray-500 mt-1.5">현재 계신 곳을 출발지로 바로 잡아드려요.</p>
@@ -88,7 +89,7 @@ export default function S0b_LocationPermission() {
                 <button
                     onClick={handleAllowLocation}
                     disabled={isLocating}
-                    className={`w-full font-bold text-lg py-4 rounded-xl shadow-md transition-colors ${isLocating ? 'bg-indigo-300 text-white cursor-not-allowed' : 'bg-indigo-600 text-white active:bg-indigo-700'
+                    className={`w-full font-bold text-lg py-4 rounded-xl shadow-md transition-colors ${isLocating ? 'bg-brand-300 text-white cursor-not-allowed' : 'bg-brand-600 text-white active:bg-brand-700'
                         }`}
                 >
                     {isLocating ? '위치 찾는 중... ⏳' : '위치 권한 허용하기'}

@@ -19,6 +19,7 @@ import {
 } from '../utils/profileStorage';
 
 
+import Button from '../components/Button';
 export default function S1() {
     const navigate = useNavigate();
     const location = useLocation();
@@ -172,7 +173,7 @@ export default function S1() {
                                 e.target.value
                             )
                         }
-                        className="w-full bg-white border-2 border-gray-200 p-4 rounded-2xl outline-none focus:border-indigo-600 focus:ring-0 transition-colors font-bold text-gray-900"
+                        className="w-full bg-white border-2 border-gray-200 p-4 rounded-2xl outline-none focus:border-brand-600 focus:ring-0 transition-colors font-bold text-gray-900"
                     />
                 </div>
 
@@ -193,7 +194,7 @@ export default function S1() {
                                 e.target.value
                             )
                         }
-                        className="w-full bg-white border-2 border-gray-200 p-4 rounded-2xl outline-none focus:border-indigo-600 focus:ring-0 transition-colors font-bold text-gray-900"
+                        className="w-full bg-white border-2 border-gray-200 p-4 rounded-2xl outline-none focus:border-brand-600 focus:ring-0 transition-colors font-bold text-gray-900"
                     />
                 </div>
 
@@ -235,8 +236,8 @@ export default function S1() {
                                     ${
                                         profile.gender ===
                                         g.id
-                                            ? 'bg-indigo-600 text-white border-indigo-600'
-                                            : 'bg-white text-gray-700 border-gray-200 hover:border-indigo-300'
+                                            ? 'bg-brand-600 text-white border-brand-600'
+                                            : 'bg-white text-gray-700 border-gray-200 hover:border-brand-300'
                                     }
                                 `}
                             >
@@ -292,8 +293,8 @@ export default function S1() {
                                     ${
                                         profile.carType ===
                                         c.id
-                                            ? 'bg-indigo-600 text-white border-indigo-600'
-                                            : 'bg-white text-gray-700 border-gray-200 hover:border-indigo-300'
+                                            ? 'bg-brand-600 text-white border-brand-600'
+                                            : 'bg-white text-gray-700 border-gray-200 hover:border-brand-300'
                                     }
                                 `}
                             >
@@ -309,7 +310,7 @@ export default function S1() {
                     <label className="block text-base font-extrabold text-gray-900 mb-3">
                         차량 연식
 
-                        <span className="text-indigo-600 ml-2">
+                        <span className="text-brand-600 ml-2">
                             {profile.carAge} 년
                         </span>
                     </label>
@@ -328,7 +329,7 @@ export default function S1() {
                                 )
                             )
                         }
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-brand-600"
                     />
                 </div>
             </div>
@@ -348,20 +349,20 @@ export default function S1() {
                     </p>
                 )}
 
-                <button
+                <Button
                     type="button"
                     onClick={
                         handleBottomButtonClick
                     }
                     disabled={isSaving}
-                    className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg disabled:bg-gray-400"
+                    
                 >
                     {isSaving
                         ? '저장 중...'
                         : isFromMyPage
                             ? '저장하기'
                             : '다음으로'}
-                </button>
+                </Button>
             </div>
         </div>
     );

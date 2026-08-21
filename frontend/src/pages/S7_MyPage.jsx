@@ -14,8 +14,10 @@ import PlaceInput from '../components/PlaceInput';
 import {
     readProfile
 } from '../utils/profileStorage';
+import Icon from '../components/Icon';
 
 
+import Button from '../components/Button';
 const SAVED_LOCATIONS_KEY =
     'neonaviSavedLocations';
 
@@ -284,8 +286,8 @@ export default function S7() {
 
                 {/* 프로필 요약 카드 */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm mb-6 flex items-center gap-4">
-                    <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center text-2xl">
-                        😎
+                    <div className="w-16 h-16 bg-brand-100 rounded-full flex items-center justify-center text-2xl">
+                        <Icon name="smile" size={28} />
                     </div>
 
                     <div>
@@ -328,18 +330,18 @@ export default function S7() {
                     <div className="mb-7">
                         <div className="flex items-center justify-between mb-2">
                             <label className="font-bold text-gray-700">
-                                🏠 집
+                                <Icon name="home" size={16} /> 집
                             </label>
 
                             {savedLocations.home && (
-                                <span className="text-xs font-bold text-indigo-600">
+                                <span className="text-xs font-bold text-brand-600">
                                     설정됨
                                 </span>
                             )}
                         </div>
 
                         <PlaceInput
-                            icon="🏠"
+                            icon="home"
                             placeholder="집 주소 또는 장소 검색"
                             text={homeText}
                             onTextChange={(value) => {
@@ -382,17 +384,17 @@ export default function S7() {
                         )}
 
                         <div className="flex gap-2 mt-3">
-                            <button
+                            <Button
                                 type="button"
                                 onClick={() =>
                                     saveLocation(
                                         'home'
                                     )
                                 }
-                                className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition"
+                                size="md" fullWidth={false} className="flex-1"
                             >
                                 집 저장
-                            </button>
+                            </Button>
 
                             {savedLocations.home && (
                                 <button
@@ -415,18 +417,18 @@ export default function S7() {
                     <div>
                         <div className="flex items-center justify-between mb-2">
                             <label className="font-bold text-gray-700">
-                                🏢 회사
+                                <Icon name="building" size={16} /> 회사
                             </label>
 
                             {savedLocations.company && (
-                                <span className="text-xs font-bold text-indigo-600">
+                                <span className="text-xs font-bold text-brand-600">
                                     설정됨
                                 </span>
                             )}
                         </div>
 
                         <PlaceInput
-                            icon="🏢"
+                            icon="building"
                             placeholder="회사 주소 또는 장소 검색"
                             text={companyText}
                             onTextChange={(value) => {
@@ -469,17 +471,17 @@ export default function S7() {
                         )}
 
                         <div className="flex gap-2 mt-3">
-                            <button
+                            <Button
                                 type="button"
                                 onClick={() =>
                                     saveLocation(
                                         'company'
                                     )
                                 }
-                                className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition"
+                                size="md" fullWidth={false} className="flex-1"
                             >
                                 회사 저장
-                            </button>
+                            </Button>
 
                             {savedLocations.company && (
                                 <button
@@ -499,7 +501,7 @@ export default function S7() {
 
 
                     {message && (
-                        <p className="mt-4 text-sm font-semibold text-indigo-600">
+                        <p className="mt-4 text-sm font-semibold text-brand-600">
                             {message}
                         </p>
                     )}

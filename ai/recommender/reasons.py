@@ -32,46 +32,46 @@ MAX_CARDS = 5
 #   min_abs      : 의미 있는 최소 절대 격차 (다른 후보 평균 대비)
 #   min_rel      : 의미 있는 최소 상대 격차 (다른 후보 평균 대비 비율)
 _SPECS = (
-    dict(key='duration_min', icon='⏱️', lower_better=True,
+    dict(key='duration_min', icon='clock', lower_better=True,
          title_best='가장 빨리 도착해요', title_good='도착이 빠른 편이에요',
          fmt=lambda v: f'{round(v)}분',
          why='같은 구간의 다른 경로보다 시간을 아낄 수 있어요.',
          min_abs=2.0, min_rel=0.05),
-    dict(key='signal_count', icon='🚦', lower_better=True,
+    dict(key='signal_count', icon='signal', lower_better=True,
          title_best='신호등이 가장 적어요', title_good='신호등이 적은 편이에요',
          fmt=lambda v: f'km당 {v:.1f}개',
          why='불필요한 정차가 줄어 흐름이 끊기지 않아요.',
          min_abs=1.0, min_rel=0.15),
-    dict(key='congestion', icon='🚘', lower_better=True,
+    dict(key='congestion', icon='car', lower_better=True,
          title_best='혼잡 구간이 가장 적어요', title_good='혼잡 구간이 적은 편이에요',
          fmt=lambda v: '',
          why='막히는 구간이 적어 도착 시각을 예측하기 좋아요.',
          min_abs=0.03, min_rel=0.15),
-    dict(key='curvature', icon='↪️', lower_better=True,
+    dict(key='curvature', icon='turn', lower_better=True,
          title_best='급커브가 가장 적어요', title_good='급커브가 적은 편이에요',
          fmt=lambda v: '',
          why='굽이가 완만해 핸들 조작이 적고 승차감이 안정적이에요.',
          min_abs=0.0, min_rel=0.20),
-    dict(key='slope', icon='⛰️', lower_better=True,
+    dict(key='slope', icon='slope', lower_better=True,
          title_best='경사가 가장 완만해요', title_good='경사가 완만한 편이에요',
          fmt=lambda v: '',
          why='급한 오르막·내리막이 적어 부담이 덜해요.',
          min_abs=0.005, min_rel=0.15),
     # ⚠️ min_value 가 없으면 "고속도로 4%인데 평균보다 86% 높음 → 큰 도로 위주"
     #    같은 과장이 나온다. 상대 격차가 커도 절대 수준이 낮으면 근거가 아니다.
-    dict(key='road_type', icon='🛣️', lower_better=False,
+    dict(key='road_type', icon='road', lower_better=False,
          title_best='큰 도로 비율이 가장 높아요', title_good='큰 도로를 많이 타요',
          fmt=lambda v: f'고속·자동차전용 {v * 100:.0f}%',
          why='차선이 넓고 신호가 적어 주행이 단순해져요.',
          min_abs=0.05, min_rel=0.20, min_value=0.15),
     # ⚠️ fuel_cost 는 '원'이 아니라 표준차 예상 소비량(L)이다(features/fuel.py).
     #    차종·유가를 반영한 실제 기름값은 아직 서빙에 없으므로 L 로만 말한다.
-    dict(key='fuel_cost', icon='⛽', lower_better=True,
+    dict(key='fuel_cost', icon='fuel', lower_better=True,
          title_best='연료를 가장 적게 써요', title_good='연료를 적게 쓰는 편이에요',
          fmt=lambda v: f'약 {v:.1f}L 예상',
          why='거리·경사·정체를 함께 반영한 표준차 기준 소비량이에요.',
          min_abs=0.08, min_rel=0.08),
-    dict(key='toll', icon='💰', lower_better=True,
+    dict(key='toll', icon='toll', lower_better=True,
          title_best='통행료가 가장 저렴해요', title_good='통행료가 저렴한 편이에요',
          fmt=lambda v: ('없음' if v <= 0 else f'{int(v):,}원'),
          why='유료도로 이용이 적거나 없어요.',
@@ -121,7 +121,7 @@ def _axis_card(idx: int, feats_len: int, axes_all: list, weights: dict) -> dict 
     total = sum(contrib.values())
     share = (contrib[axis] / total) if total > 0 else 0.0
     return {
-        'icon': '🎯',
+        'icon': 'axis',
         'title': (f'{label} 성향에 가장 잘 맞아요' if is_best
                   else f'{label} 성향에 맞는 편이에요'),
         'desc': (
@@ -150,13 +150,17 @@ def _tradeoff_card(idx: int, ref: int, feats: list) -> dict | None:
     items = losses[:2] + gains[:2]        # 잃는 것을 먼저 — 숨기지 않는다
     if not items:
         return None
-    return {'icon': '⚖️', 'title': '추천 경로와의 차이',
+    return {'icon': 'tradeoff', 'title': '추천 경로와의 차이',
             'desc': f"추천 경로 대비 {' · '.join(items)}."}
 
 
 def build(idx: int, feats: list, axes_all: list = None, weights: dict = None,
           top_idx: int = None) -> list:
     """경로 하나의 근거 카드 목록 [{icon, title, desc}, ...] 을 만든다.
+
+    icon 은 이모지가 아니라 **키**다(clock/signal/car/...). 화면에서
+    frontend/src/components/Icon.jsx 가 같은 이름의 SVG 로 그린다.
+    이모지를 직접 내려보내면 기기마다 다른 그림이 뜨고 색도 못 맞춘다.
 
     idx      : feats 안에서 이 경로의 위치
     feats    : 후보 전체의 원시 특성 dict 리스트 (vectorize.build_feature_vector)
@@ -173,11 +177,11 @@ def build(idx: int, feats: list, axes_all: list = None, weights: dict = None,
     if len(feats) < 2:
         mine = feats[idx] if feats else {}
         if mine.get('toll') is not None and float(mine['toll']) <= 0:
-            cards.append({'icon': '💰', 'title': '통행료가 없어요',
+            cards.append({'icon': 'toll', 'title': '통행료가 없어요',
                           'desc': '이 경로는 유료도로를 지나지 않아요.'})
         if mine.get('duration_min') is not None:
             cards.append({
-                'icon': '⏱️', 'title': f"예상 {round(float(mine['duration_min']))}분",
+                'icon': 'clock', 'title': f"예상 {round(float(mine['duration_min']))}분",
                 'desc': '이 구간에서 찾은 유일한 경로라 다른 후보와의 비교는 없어요.'})
         return cards[:MAX_CARDS]
 
@@ -224,6 +228,6 @@ def build(idx: int, feats: list, axes_all: list = None, weights: dict = None,
     if not cards:
         tc = _tradeoff_card(idx, top_idx, feats)
         cards.append(tc or {
-            'icon': '🗺️', 'title': '비슷한 조건의 대안',
+            'icon': 'map', 'title': '비슷한 조건의 대안',
             'desc': '추천 경로와 시간·거리·비용이 비슷해 골라도 손해가 크지 않아요.'})
     return cards[:MAX_CARDS]

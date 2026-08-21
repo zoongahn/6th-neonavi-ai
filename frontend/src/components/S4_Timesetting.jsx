@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
+import Button from './Button';
 export default function DepartureTimeModal({ isOpen, onClose, onConfirm, initialTime }) {
     // initialTime이 'now'이면 현재 시간, 아니면 설정된 시간을 파싱
     const getInitialDateTime = () => {
@@ -80,7 +81,7 @@ export default function DepartureTimeModal({ isOpen, onClose, onConfirm, initial
                             checked={isCustomTime}
                             onChange={(e) => setIsCustomTime(e.target.checked)}
                         />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
                     </label>
                 </div>
 
@@ -99,16 +100,16 @@ export default function DepartureTimeModal({ isOpen, onClose, onConfirm, initial
                 <div className="flex gap-2 px-2">
                     <button
                         onClick={handleNowDepart}
-                        className="flex-none w-1/3 py-4 rounded-xl font-bold text-[16px] bg-gray-400 text-white active:bg-gray-500 transition-colors"
+                        className="flex-none w-1/3 py-4 rounded-xl font-bold text-base bg-gray-400 text-white active:bg-gray-500 transition-colors"
                     >
                         지금 출발
                     </button>
-                    <button
+                    <Button
                         onClick={handleConfirm}
-                        className="flex-1 py-4 rounded-xl font-bold text-[16px] bg-blue-600 text-white shadow-md active:bg-blue-700 transition-colors"
+                        fullWidth={false} className="flex-1"
                     >
                         확인
-                    </button>
+                    </Button>
                 </div>
             </div>
 

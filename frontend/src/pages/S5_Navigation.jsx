@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import Icon from '../components/Icon';
 
 import NavMap from '../components/NavMap';
 import { getRouteRecommendation } from '../api/naviApi';
@@ -354,14 +355,14 @@ export default function S5_Navigation() {
 
             {/* 회전 안내 카드 — 카카오가 준 안내문을 그대로 쓴다 */}
             <div className="absolute top-4 left-4 right-4 z-10">
-                <div className="bg-indigo-600 text-white rounded-2xl p-5 shadow-2xl flex items-center gap-4">
-                    <div className="text-5xl leading-none flex-none w-14 text-center">
-                        {onRoute ? (step ? step.icon : '🏁') : '📍'}
+                <div className="bg-brand-600 text-white rounded-2xl p-5 shadow-2xl flex items-center gap-4">
+                    <div className="flex-none w-14 flex justify-center">
+                        <Icon name={onRoute ? (step ? step.icon : 'flag') : 'pin'} size={46} />
                     </div>
                     <div className="flex-1 min-w-0">
                         {onRoute ? (
                             <>
-                                <div className="text-3xl font-extrabold mb-1">
+                                <div className="text-3xl font-extrabold mb-1 tabular-nums">
                                     {step ? formatDistance(step.remainM) : formatDistance(remainM)}
                                 </div>
                                 <div className="text-lg font-medium opacity-90 break-words">
@@ -388,7 +389,7 @@ export default function S5_Navigation() {
                             </span>
                         )}
                         {isOffRoute && (
-                            <span className="bg-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow">
+                            <span className="bg-warn text-white text-xs font-bold px-3 py-1.5 rounded-full shadow">
                                 경로를 벗어났습니다 · 재탐색은 하지 않습니다
                             </span>
                         )}
@@ -424,11 +425,14 @@ export default function S5_Navigation() {
                                 onClick={() => handleModeChange(mode)}
                                 className={`py-2 px-3 text-sm font-bold rounded-lg text-left transition-colors disabled:opacity-40 ${
                                     currentMode === mode
-                                        ? 'bg-indigo-50 text-indigo-600'
+                                        ? 'bg-brand-50 text-brand-600'
                                         : 'text-gray-600 hover:bg-gray-50'
                                 }`}
                             >
-                                {mode} {currentMode === mode && '✓'}
+                                <span className="flex items-center justify-between gap-2">
+                                    {mode}
+                                    {currentMode === mode && <Icon name="check" size={16} />}
+                                </span>
                             </button>
                         ))}
                     </div>
@@ -438,9 +442,9 @@ export default function S5_Navigation() {
                     type="button"
                     disabled={isRerouting}
                     onClick={() => setIsModeMenuOpen((open) => !open)}
-                    className="bg-white text-indigo-600 font-extrabold py-3 px-5 rounded-full shadow-lg border-2 border-indigo-100 flex items-center gap-2 active:scale-95 transition-transform disabled:opacity-60"
+                    className="bg-white text-brand-600 font-extrabold py-3 px-5 rounded-full shadow-lg border-2 border-brand-100 flex items-center gap-2 active:scale-95 transition-transform disabled:opacity-60"
                 >
-                    <span className="text-xl">✨</span>
+                    <Icon name="sliders" size={18} />
                     {isRerouting ? '경로 다시 찾는 중…' : currentMode}
                 </button>
 
@@ -470,7 +474,7 @@ export default function S5_Navigation() {
                                 onClick={() => setSimSpeed(speed)}
                                 className={`text-xs font-bold py-2 px-3 transition-colors ${
                                     simSpeed === speed
-                                        ? 'bg-indigo-600 text-white'
+                                        ? 'bg-brand-600 text-white'
                                         : 'text-gray-500 hover:bg-gray-50'
                                 }`}
                             >
@@ -484,11 +488,11 @@ export default function S5_Navigation() {
             <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] p-6 z-10">
                 <div className="flex justify-between items-end gap-3 mb-4">
                     <div className="min-w-0">
-                        <div className="text-3xl font-extrabold text-gray-900">
+                        <div className="text-3xl font-extrabold text-gray-900 tabular-nums">
                             {onRoute ? `${arrivalText} 도착` : selectedRoute.arrivalTime || '—'}
                         </div>
                         <div className="text-gray-500 font-medium mt-1">
-                            <span className="text-indigo-600 font-bold">
+                            <span className="text-brand-600 font-bold">
                                 {onRoute ? `${Math.max(1, Math.round(remainMin))}분` : selectedRoute.time || '—'}
                             </span>
                             {onRoute ? ' 남음 · ' : ' · '}

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import Icon from './Icon';
 
 import { searchPlaces } from '../api/naviApi';
 
@@ -13,7 +14,7 @@ import { searchPlaces } from '../api/naviApi';
  *   경우엔 후보를 띄우지 않는다.
  * - 검색 결과에서 고른 뒤에도 그 이름으로 다시 검색하지 않는다.
  *
- * @param {string} icon         입력칸 앞 아이콘
+ * @param {string} icon         입력칸 앞 아이콘 이름 (Icon.jsx 키)
  * @param {string} placeholder
  * @param {string} text         입력창에 보이는 글자(부모가 최근 경로 등으로 바꿀 수 있다)
  * @param {func}   onTextChange 글자가 바뀔 때
@@ -104,7 +105,9 @@ export default function PlaceInput({
     return (
         <div className="relative">
             <div className="flex items-center bg-white border border-gray-200 rounded-2xl px-4 py-3">
-                <span className="mr-3">{icon}</span>
+                <span className="mr-3 text-gray-400 flex-none">
+                    <Icon name={icon} size={20} />
+                </span>
                 <input
                     type="text"
                     value={text}

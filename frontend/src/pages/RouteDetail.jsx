@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import Icon from '../components/Icon';
 
 import TopNavBar from '../components/TopNavBar';
 import { explainRoute } from '../api/naviApi';
@@ -187,9 +188,9 @@ export default function RouteDetail() {
                     <div className="flex items-center gap-2 flex-wrap">
                         <span
                             className={
-                                'text-xs font-bold px-2 py-1 rounded-md ' +
+                                'text-xs font-bold px-2 py-1 rounded-lg ' +
                                 (isTopRoute
-                                    ? 'text-indigo-600 bg-indigo-50'
+                                    ? 'text-brand-600 bg-brand-50'
                                     : 'text-gray-500 bg-gray-100')
                             }
                         >
@@ -234,20 +235,15 @@ export default function RouteDetail() {
                         )}
 
                         {/* 근거 카드 */}
+                        {/* item.icon 은 reasons.py 가 준 **키**(clock/signal/...)다.
+                            예전엔 백엔드가 이모지를 직접 보내고 여기서 문자열에
+                            "snowflake"·"안전" 이 들어있는지 검사해 다른 이모지로
+                            바꿨는데, LLM 을 붙이려던 시절 잔재라 지금은 안 탄다. */}
                         {!isLoading && !errorMessage && aiReasons.length > 0 && aiReasons.map((item, idx) => {
-                            let displayIcon = "✨";
-                            const iconStr = String(item.icon || "");
-
-                            if (iconStr.includes("snowflake") || iconStr.includes("저감")) displayIcon = "❄️";
-                            else if (iconStr.includes("money") || iconStr.includes("bill") || iconStr.includes("경제성")) displayIcon = "💰";
-                            else if (iconStr.includes("shield") || iconStr.includes("안전")) displayIcon = "🛡️";
-                            else if (iconStr.includes("car") || iconStr.includes("주행")) displayIcon = "🚗";
-                            else if (iconStr.length <= 2) displayIcon = iconStr; // 이미 순수 이모지라면 그대로 사용
-
                             return (
                                 <div key={idx} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex gap-4 items-center">
-                                    <div className="text-3xl bg-gray-50 w-12 h-12 flex items-center justify-center rounded-full flex-none">
-                                        {displayIcon}
+                                    <div className="bg-brand-50 text-brand-600 w-12 h-12 flex items-center justify-center rounded-full flex-none">
+                                        <Icon name={item.icon || 'map'} size={24} />
                                     </div>
                                     <div>
                                         <h4 className="font-bold text-gray-900">{item.title}</h4>
@@ -268,7 +264,7 @@ export default function RouteDetail() {
                 </div>
 
                 {/* 3. AI 경로 분석 (진행바 및 원본 데이터 유지) */}
-                <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                     <h3 className="text-lg font-bold text-gray-900 mb-4">
                         AI 경로 분석
                     </h3>
@@ -282,9 +278,9 @@ export default function RouteDetail() {
                                 <div key={idx} className="flex items-center justify-between gap-2">
                                     <span className="text-xs font-bold text-gray-600 w-20">{stat.label}</span>
                                     <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                        <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${stat.score}%` }}></div>
+                                        <div className="h-full bg-brand-500 rounded-full" style={{ width: `${stat.score}%` }}></div>
                                     </div>
-                                    <span className="text-xs font-bold text-indigo-600">{stat.score}</span>
+                                    <span className="text-xs font-bold text-brand-600">{stat.score}</span>
                                 </div>
                             ))}
                         </div>
@@ -295,11 +291,11 @@ export default function RouteDetail() {
                         <h4 className="font-bold text-gray-800 mb-3">
                             원본 데이터
                         </h4>
-                        <table className="w-full text-sm">
+                        <table className="w-full text-sm tabular-nums">
                             <thead>
                                 <tr className="text-gray-500 text-xs border-b border-gray-100">
                                     <th className="font-medium pb-2 text-left">지표</th>
-                                    <th className="font-bold text-indigo-600 pb-2 text-center">추천 경로</th>
+                                    <th className="font-bold text-brand-600 pb-2 text-center">추천 경로</th>
                                     <th className="font-medium pb-2 text-center">후보 평균</th>
                                 </tr>
                             </thead>
@@ -307,7 +303,7 @@ export default function RouteDetail() {
                                 {rawRows.map((row, idx) => (
                                     <tr key={idx} className="text-gray-700">
                                         <td className="py-2.5 text-gray-600">{row[0]}</td>
-                                        <td className="py-2.5 text-center font-bold text-indigo-600">{row[1]}</td>
+                                        <td className="py-2.5 text-center font-bold text-brand-600">{row[1]}</td>
                                         <td className="py-2.5 text-center text-gray-400">{row[2]}</td>
                                     </tr>
                                 ))}
