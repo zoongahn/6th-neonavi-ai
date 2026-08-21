@@ -1,8 +1,30 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "functions": {
-    "backend/config/wsgi.py": {
-      "maxDuration": 60
+  "services": {
+    "frontend": {
+      "root": "frontend",
+      "framework": "create-react-app"
+    },
+    "backend": {
+      "root": ".",
+      "framework": "django",
+      "entrypoint": "backend/config/wsgi.py",
+      "buildCommand": "python -m ai.fetch_data",
+      "functions": {
+        "backend/config/wsgi.py": {
+          "maxDuration": 60
+        }
+      }
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": { "service": "backend" }
+    },
+    {
+      "source": "/(.*)",
+      "destination": { "service": "frontend" }
+    }
+  ]
 }

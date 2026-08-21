@@ -1,8 +1,24 @@
 // src/api/naviApi.js
-// 백엔드(Django) 연동. 로컬 개발 기본값: http://127.0.0.1:8000
-// 다른 주소를 쓰려면 frontend/.env 에 REACT_APP_API_BASE_URL 지정 (CRA 규칙).
-const BASE_URL =
-    process.env.REACT_APP_API_BASE_URL || 'http://127.0.0.1:8000';
+// 백엔드(Django) 연동.
+//
+// 주소를 정하는 순서:
+//   1. REACT_APP_API_BASE_URL 이 있으면 그것 (명시가 항상 이긴다)
+//   2. 로컬 개발(localhost)이면 http://127.0.0.1:8000
+//   3. 그 외(배포)면 **같은 오리진** — 빈 문자열이라 /api/... 가 상대 경로가 된다
+//
+// 배포는 프론트와 백엔드를 한 도메인에서 서비스한다(Vercel services: / 는 프론트,
+// /api 는 Django). 같은 오리진이라 CORS 도 필요 없고, 프론트에 백엔드 주소를
+// 넣어 줄 필요도 없다 — 미리보기 배포처럼 도메인이 매번 달라져도 그대로 맞는다.
+// ⚠️ REACT_APP_* 는 빌드 시점에 코드에 박히므로, 주소를 못 박아 두면 도메인이
+//    바뀔 때마다 재배포해야 한다. 그래서 기본을 상대 경로로 둔다.
+const _isLocalDev =
+    typeof window !== 'undefined' &&
+    ['localhost', '127.0.0.1'].includes(window.location.hostname);
+
+const BASE_URL = (
+    process.env.REACT_APP_API_BASE_URL ??
+    (_isLocalDev ? 'http://127.0.0.1:8000' : '')
+).replace(/\/$/, '');
 
 async function postJson(path, body) {
     const response = await fetch(`${BASE_URL}${path}`, {
