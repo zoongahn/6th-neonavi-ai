@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import requests
 
-from .kakao import _headers   # .env 로딩 + Authorization 재사용
+from .kakao import SESSION, _headers   # .env 로딩 + Authorization·연결 재사용
 
 KEYWORD_URL = "https://dapi.kakao.com/v2/local/search/keyword.json"
 ADDRESS_URL = "https://dapi.kakao.com/v2/local/search/address.json"
@@ -21,8 +21,8 @@ class GeocodeError(Exception):
 
 def _first_doc(url: str, query: str, timeout: int = 5) -> dict | None:
     try:
-        resp = requests.get(url, headers=_headers(),
-                            params={"query": query, "size": 1}, timeout=timeout)
+        resp = SESSION.get(url, headers=_headers(),
+                           params={"query": query, "size": 1}, timeout=timeout)
     except requests.RequestException:
         return None
     if resp.status_code != 200:
@@ -41,8 +41,8 @@ def search_places(query: str, size: int = 8) -> list[dict]:
     if not q:
         return []
     try:
-        resp = requests.get(KEYWORD_URL, headers=_headers(),
-                            params={"query": q, "size": max(1, min(size, 15))}, timeout=5)
+        resp = SESSION.get(KEYWORD_URL, headers=_headers(),
+                           params={"query": q, "size": max(1, min(size, 15))}, timeout=5)
     except requests.RequestException:
         return []
     if resp.status_code != 200:

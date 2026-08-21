@@ -16,6 +16,14 @@ import requests
 
 from ..schema import CandidateRoute
 
+# 카카오 호출을 한 연결로 재사용한다.
+#
+# ⚠️ requests.get() 을 그냥 부르면 **매 호출마다 TCP+TLS 를 새로 맺는다.** 로컬에선
+#    94ms → 65ms 차이지만(31%), 서버리스에서는 이 비용이 훨씬 크다. 배포된
+#    자동완성이 로컬 0.10초 대비 1.0초였는데, 그중 0.73초가 카카오 호출이었다
+#    (카카오 API 자체는 0.1초). 웜 컨테이너가 살아 있는 동안 연결이 유지된다.
+SESSION = requests.Session()
+
 KAKAO_URL = "https://apis-navi.kakaomobility.com/v1/directions"
 # 미래 운행 정보 — 같은 응답 구조에 departure_time 만 추가로 받는다(무료 5,000건/일).
 KAKAO_FUTURE_URL = "https://apis-navi.kakaomobility.com/v1/future/directions"
@@ -90,7 +98,7 @@ def _call(origin, dest, priority="RECOMMEND", waypoint=None, timeout=10,
         url = KAKAO_FUTURE_URL
         params["departure_time"] = departure_time
     try:
-        resp = requests.get(url, headers=_headers(), params=params, timeout=timeout)
+        resp = SESSION.get(url, headers=_headers(), params=params, timeout=timeout)
     except requests.RequestException as exc:
         if errors is not None:
             errors.append((None, f"길찾기 서버에 연결하지 못했습니다: {exc}"))
