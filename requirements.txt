@@ -1,0 +1,10 @@
+# Vercel 백엔드 배포용 진입점.
+#
+# Vercel 의 Python 런타임은 프로젝트 루트에서 requirements.txt 를 찾는데,
+# 우리 목록은 backend/ 아래에 있다. 두 벌로 관리하면 반드시 어긋나므로
+# 여기서는 그 파일을 참조만 한다.
+#
+# 백엔드 루트 디렉터리를 레포 최상단으로 잡는 이유: 추천이 ai/ 를 직접
+# import 하고(settings.py 가 sys.path 에 레포 루트를 넣는다), 서빙 데이터도
+# ai/data 에 받기 때문이다.
+-r backend/requirements.txt
