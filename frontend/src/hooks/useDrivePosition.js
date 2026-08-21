@@ -35,6 +35,10 @@ export default function useDrivePosition({
     active = true,
 }) {
     const [position, setPosition] = useState(null);
+    // 브라우저가 알려주는 측위 오차 반경(m). PC 는 WiFi·IP 측위라 수십~수백 m,
+    // 폰(https)은 실제 GNSS 라 도심 5~20m. '얼마나 믿을 값인지'를 화면이
+    // 판단하려면 이 값이 필요하다. 모의 주행은 오차가 없으므로 0.
+    const [accuracyM, setAccuracyM] = useState(0);
     const [heading, setHeading] = useState(0);
     const [actualSpeedKmh, setActualSpeedKmh] = useState(0);
     const [effectiveSource, setEffectiveSource] = useState(source);
@@ -72,6 +76,9 @@ export default function useDrivePosition({
             ({ coords }) => {
                 const next = { lng: coords.longitude, lat: coords.latitude };
                 setPosition(next);
+                setAccuracyM(
+                    Number.isFinite(coords.accuracy) ? coords.accuracy : 0
+                );
                 setActualSpeedKmh(
                     Number.isFinite(coords.speed) && coords.speed >= 0
                         ? coords.speed * 3.6
@@ -119,6 +126,7 @@ export default function useDrivePosition({
                 lastCommit = now;
                 const at = pointAtDistance(drivePath, cum, distanceRef.current);
                 setPosition({ lng: at.lng, lat: at.lat });
+                setAccuracyM(0);          // 모의 주행은 정확히 그 점에 있다
                 setHeading(at.heading);
                 setActualSpeedKmh(speedKmh);
             }
@@ -135,5 +143,8 @@ export default function useDrivePosition({
         distanceRef.current = 0;
     }, [path]);
 
-    return { position, heading, speedKmh: actualSpeedKmh, effectiveSource, notice };
+    return {
+        position, heading, speedKmh: actualSpeedKmh,
+        accuracyM, effectiveSource, notice,
+    };
 }

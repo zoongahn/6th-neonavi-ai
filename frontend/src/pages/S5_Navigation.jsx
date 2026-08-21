@@ -14,12 +14,21 @@ import { currentStep, prepareSteps } from '../utils/navSteps';
 const AXIS_TO_MODE = { sports: 'Sports', comfort: 'Comfort', fuel: 'Eco' };
 
 const ARRIVAL_M = 50;        // 남은거리가 이 아래면 도착으로 본다
-const OFF_ROUTE_M = 60;      // 경로에서 이만큼 벗어나면
+const OFF_ROUTE_M = 60;      // 주행 중 경로에서 이만큼 벗어나면
 const OFF_ROUTE_MS = 5000;   // 이 시간 이상 지속돼야 이탈로 친다(신호 튐 방지)
 // 출발 전 스냅 허용 반경. 출발지를 도로에 붙이는 과정(카카오)과 GPS 오차를
 // 합쳐 100m 안팎까지 벌어질 수 있어 넉넉히 잡는다. 이 값이 '주행 시작' 판정은
 // 아니다 — 그건 OFF_ROUTE_M 이 따로 본다.
 const START_SNAP_M = 150;
+/*
+    ⚠️ 주행 '시작' 판정은 OFF_ROUTE_M 보다 훨씬 느슨해야 한다. 그 값은 원래
+    주행 중 경로 이탈을 잡으려던 것이고, 출발 시점에는 다음이 겹친다.
+      · 카카오가 출발지를 도로에 붙인다 — 단지·골목 안이면 그대로 100m 가까이
+      · GPS 오차 — PC 는 WiFi 측위라 수십 m
+    실제로 '가락한신아파트'를 찍으면 경로 시작점이 단지 밖 도로라, 60m 기준으로는
+    "출발지에서 100m 떨어져 있습니다"에서 안내가 시작되지 않았다.
+*/
+const START_ON_ROUTE_M = 150;
 const BACKTRACK_M = 30;      // 이만큼의 후퇴는 신호 흔들림으로 보고 무시한다
 const SIM_SPEEDS = [40, 80, 160];
 
@@ -63,7 +72,7 @@ export default function S5_Navigation() {
     // ?sim=1 이면 모의 주행으로 시작한다(발표·개발용).
     const [source, setSource] = useState(() => (searchParams.get('sim') === '1' ? 'sim' : 'gps'));
     const [simSpeed, setSimSpeed] = useState(80);
-    const { position, heading, effectiveSource, notice } = useDrivePosition({
+    const { position, heading, accuracyM, effectiveSource, notice } = useDrivePosition({
         source,
         path,
         speedKmh: simSpeed,
@@ -131,14 +140,27 @@ export default function S5_Navigation() {
         모의 주행은 경로 위에서 시작하므로 곧바로 주행 중이 된다.
     */
     const [hasStarted, setHasStarted] = useState(false);
+    // 측위가 ±80m 라고 스스로 말하는데 60m 이내를 요구하는 건 앞뒤가 맞지 않는다.
+    const startRadiusM = Math.max(START_ON_ROUTE_M, accuracyM || 0);
     useEffect(() => {
-        if (snapped && snapped.offsetM <= OFF_ROUTE_M) setHasStarted(true);
-    }, [snapped]);
+        if (snapped && snapped.offsetM <= startRadiusM) setHasStarted(true);
+    }, [snapped, startRadiusM]);
     hasStartedRef.current = hasStarted;
+
+    /*
+        경로 이탈 경고는 **한 번이라도 실제 경로 위에 올라온 뒤**에만 켠다.
+        출발 판정을 느슨하게 잡았으므로, 그것만으로 이탈을 재면 단지에서 나오는
+        동안 계속 "경로를 벗어났습니다"가 뜬다.
+    */
+    const [hasBeenOnRoute, setHasBeenOnRoute] = useState(false);
+    useEffect(() => {
+        if (snapped && snapped.offsetM <= OFF_ROUTE_M) setHasBeenOnRoute(true);
+    }, [snapped]);
 
     // 경로가 바뀌면(모드 전환) 진행 상태를 처음으로
     useEffect(() => {
         setHasStarted(false);
+        setHasBeenOnRoute(false);
         hasStartedRef.current = false;
     }, [path]);
 
@@ -179,7 +201,7 @@ export default function S5_Navigation() {
     const [isOffRoute, setIsOffRoute] = useState(false);
     const offSinceRef = useRef(0);
     useEffect(() => {
-        if (!snapped || !hasStarted) return;   // 출발 전은 이탈이 아니다
+        if (!snapped || !hasBeenOnRoute) return;   // 경로에 올라오기 전은 이탈이 아니다
         if (snapped.offsetM > OFF_ROUTE_M) {
             if (!offSinceRef.current) offSinceRef.current = Date.now();
             else if (Date.now() - offSinceRef.current > OFF_ROUTE_MS) setIsOffRoute(true);
@@ -187,7 +209,7 @@ export default function S5_Navigation() {
             offSinceRef.current = 0;
             setIsOffRoute(false);
         }
-    }, [snapped, hasStarted]);
+    }, [snapped, hasBeenOnRoute]);
 
     // ── 화면 꺼짐 방지 ────────────────────────────────────────
     // 화면이 꺼지면 watchPosition 도 멈춘다(브라우저 정책). 주행 화면에선 필수.
