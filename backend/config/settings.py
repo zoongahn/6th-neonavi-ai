@@ -96,9 +96,13 @@ DATABASES = {
 #    CONN_MAX_AGE=0 도 같은 이유다 — 연결을 붙들고 있으면 안 된다.
 _db_url = os.environ.get('DATABASE_URL', '').strip()
 if _db_url:
-    from urllib.parse import unquote, urlparse
+    from urllib.parse import parse_qsl, unquote, urlparse
 
     _u = urlparse(_db_url)
+    # 쿼리 파라미터(sslmode·channel_binding 등)를 버리면 안 된다. Neon 은
+    # channel_binding=require 를 붙여 주는데, 떨어뜨리면 접속이 거부될 수 있다.
+    _opts = dict(parse_qsl(_u.query))
+    _opts.setdefault('sslmode', os.environ.get('DATABASE_SSLMODE', 'require'))
     DATABASES['default'] = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': _u.path.lstrip('/'),
@@ -107,7 +111,7 @@ if _db_url:
         'HOST': _u.hostname or '',
         'PORT': str(_u.port or 5432),
         'CONN_MAX_AGE': 0,
-        'OPTIONS': {'sslmode': os.environ.get('DATABASE_SSLMODE', 'require')},
+        'OPTIONS': _opts,
     }
 
 # 프론트 연동. 배포에서는 CORS_ALLOWED_ORIGINS 로 프론트 주소만 허용한다.
