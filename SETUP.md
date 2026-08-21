@@ -139,6 +139,45 @@ npm start
 | (Windows) `python` 을 찾을 수 없음 | Python 재설치 시 "Add Python to PATH" 체크, 또는 `py -3 -m venv .venv` 로 시도 |
 | (Windows) `npm start` 후 화면이 안 뜸 | 방화벽 팝업이 떴는지 확인 후 허용 |
 
+## 배포 (프론트 정적 호스팅 + 백엔드 Python)
+
+로컬 실행만 할 거면 이 절은 건너뛰어도 된다.
+
+**1) 서빙 데이터 받기** — 공공데이터 파생본(27MB)은 레포에 없다. 재수집할 때마다
+git 히스토리에 쌓이므로 GitHub Release 자산으로 둔다.
+```
+python -m ai.fetch_data
+```
+받은 뒤 sha256 을 검증한다. 잘린 파일이 들어와도 pickle 이 그럴듯하게 읽히면
+공간조인이 조용히 틀린 값을 내기 때문이다.
+
+**2) 백엔드는 torch 없이 돈다.** 모델이 파라미터 1,062개뿐이라 순수 파이썬으로
+계산한다(`ai/data/model_weights.json`, 22.5KB — 이건 레포에 있다).
+`backend/requirements.txt` 에 torch 가 없고, 설치돼 있으면 자동으로 torch 를 쓴다.
+`NEONAVI_ENGINE=torch|pure|auto` 로 고정할 수 있다.
+**재학습하면 `python -m ai.export_weights` 로 JSON 을 다시 뽑을 것**
+(`ai/train.py` 는 학습 끝에 자동으로 뽑는다).
+
+**3) 환경변수** — 아무것도 안 주면 로컬 개발 설정 그대로 동작한다.
+
+| 변수 | 어디에 | 설명 |
+|---|---|---|
+| `DJANGO_SECRET_KEY` | 백엔드 | 필수. 기본값은 레포에 공개돼 있다 |
+| `DJANGO_DEBUG=0` | 백엔드 | 필수. 켜두면 예외 화면에 코드·설정이 노출된다 |
+| `DJANGO_ALLOWED_HOSTS` | 백엔드 | 배포 도메인 (쉼표 구분) |
+| `CORS_ALLOWED_ORIGINS` | 백엔드 | 프론트 주소 (쉼표 구분). 안 주면 전체 허용으로 남는다 |
+| `KAKAO_REST_API_KEY` | 백엔드 | 기존과 동일 |
+| `REACT_APP_API_BASE_URL` | 프론트 | 백엔드 주소. **안 주면 127.0.0.1 을 부른다** |
+| `REACT_APP_KAKAO_JS_KEY` | 프론트 | 기존과 동일 |
+| `REACT_APP_TMAP_APP_KEY` | 프론트 | S5 주행 지도 |
+
+**4) 카카오 개발자콘솔에 배포 도메인 등록** — Web 플랫폼에 추가하지 않으면
+지도가 아예 안 뜬다. 이걸 빼먹으면 로컬에서만 되는 배포가 된다.
+
+**5) 서버리스(Vercel 등) 주의** — 파일시스템이 읽기전용이라 고도 캐시를 못 쓴다
+(가드가 있어 실패해도 추천은 된다). sqlite 도 영속되지 않으므로 주행 기록을
+남기려면 외부 DB 가 필요하다.
+
 ## 참고
 - 경사(언덕) 데이터는 없어도 동작한다. 외부 API로 대신 가져오며 하루 요청 한도가 있다. 정밀하게 쓰려면 DEM 파일(278MB)을 따로 요청할 것.
 - 설계 문서는 노션 "너네비 AI 설계문서" 참고.
