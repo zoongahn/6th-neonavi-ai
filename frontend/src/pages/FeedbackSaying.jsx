@@ -42,7 +42,7 @@ export default function FeedbackSaying() {
                 <Icon name="car" size={40} />
             </div>
 
-            <div className="bg-brand-700/50 p-8 rounded-3xl backdrop-blur-sm max-w-sm w-full shadow-lg border border-brand-500/30">
+            <div className="bg-brand-700/50 p-8 rounded-2xl backdrop-blur-sm max-w-sm w-full shadow-lg border border-brand-500/30">
 
                 <p className="text-xl font-bold leading-relaxed mb-4 break-keep">
                     "{quote}"

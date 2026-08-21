@@ -14,6 +14,11 @@ export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      fontSize: {
+        // 기본 스케일에 없는 아주 작은 라벨(칩 안 보조문구 등). 임의값 text-[11px]
+        // 대신 이름을 붙여 둔다.
+        xxs: ['11px', '15px'],
+      },
       fontFamily: {
         // Tailwind preflight 가 html 에 이걸 깔아 준다 → 앱 전체 기본 글꼴
         sans: ['Wanted Sans', 'Wanted Sans Ext', 'system-ui', '-apple-system',

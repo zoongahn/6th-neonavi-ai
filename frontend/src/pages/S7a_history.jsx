@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Icon from '../components/Icon';
 
 import { fetchTrips } from '../api/naviApi';
+
+import TopNavBar from '../components/TopNavBar';
+
 
 const HISTORY_STORAGE_KEY = 'neonaviDriveHistories';
 
@@ -80,7 +82,6 @@ const formatFee = (fee) => {
 };
 
 export default function S7a() {
-    const navigate = useNavigate();
 
     /*
         먼저 로컬 기록으로 즉시 그리고, 서버 기록이 오면 그쪽으로 교체한다.
@@ -154,20 +155,7 @@ export default function S7a() {
 
     return (
         <div className="relative w-full min-h-[100dvh] bg-gray-100 flex flex-col">
-            {/* 상단 내비게이션 바 */}
-            <div className="sticky top-0 z-50 bg-white px-4 py-4 flex items-center border-b border-gray-200 shadow-sm">
-                <button
-                    type="button"
-                    onClick={() => navigate(-1)}
-                    className="text-xl font-bold mr-4 text-gray-800"
-                >
-                    ←
-                </button>
-
-                <h2 className="text-lg font-bold text-gray-800">
-                    주행 기록 및 피드백
-                </h2>
-            </div>
+            <TopNavBar title="주행 기록 및 피드백" sticky />
 
             {/* 메인 콘텐츠 */}
             <div className="flex-1 px-4 pt-6 pb-10">
@@ -179,7 +167,7 @@ export default function S7a() {
                     </p>
 
                     <div className="flex items-end gap-1">
-                        <span className="text-4xl font-black tracking-tight">
+                        <span className="text-4xl font-black tracking-tight tabular-nums">
                             {totalDistance}
                         </span>
 

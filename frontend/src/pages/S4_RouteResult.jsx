@@ -10,6 +10,7 @@ import { hasUsableProfile, readProfile } from '../utils/profileStorage';
 import { buildRecommendRequest } from '../utils/buildRecommendRequest';
 import { readTrip, writeTrip } from '../utils/tripStorage';
 
+import Button from '../components/Button';
 // 상세 화면에 다녀와도 경로를 다시 추천받지 않도록 결과를 잠깐 보관한다.
 // (여정 자체는 tripStorage 가 관리하므로 여기엔 추천 결과만 둔다.)
 const ROUTE_RESULT_CACHE_KEY = 'neonaviRouteResultSnapshot';
@@ -384,7 +385,7 @@ export default function S4_RouteResult() {
                                 ? ' 기준으로 정렬했습니다'
                                 : '을(를) 우선하는 성향입니다'}
                             {preference.unanimous && (
-                                <span className="block text-[11px] text-gray-400 mt-0.5">
+                                <span className="block text-xxs text-gray-400 mt-0.5">
                                     이 구간은 어떤 성향이어도 같은 경로가 1순위입니다
                                 </span>
                             )}
@@ -423,15 +424,15 @@ export default function S4_RouteResult() {
                             <p className="text-xs text-gray-600 mb-4">
                                 나이·성별·차종·연식으로 운전 성향을 추론합니다. 한 번만 입력하면 돼요.
                             </p>
-                            <button
+                            <Button
                                 type="button"
                                 onClick={() =>
                                     navigate('/profile', { state: { profileRequired: true } })
                                 }
-                                className="w-full bg-brand-600 text-white py-3 rounded-xl font-bold active:bg-brand-700 transition-colors"
+                                size="md"
                             >
                                 기본 정보 입력하기
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 )}
@@ -491,7 +492,7 @@ export default function S4_RouteResult() {
                                 <div className="flex justify-between items-start gap-2 mb-1">
 
                                     <span
-                                        className={`font-extrabold text-[15px] ${
+                                        className={`font-extrabold text-sm ${
                                             isSelected
                                                 ? 'text-brand-600'
                                                 : 'text-gray-700'
@@ -575,7 +576,7 @@ export default function S4_RouteResult() {
                                                     key={
                                                         label
                                                     }
-                                                    className="text-[10px] font-bold text-brand-700 bg-brand-50 border border-brand-100 px-1.5 py-0.5 rounded"
+                                                    className="text-xxs font-bold text-brand-700 bg-brand-50 border border-brand-100 px-1.5 py-0.5 rounded"
                                                 >
                                                     {label}{' '}
                                                     우선이라면
@@ -617,21 +618,21 @@ export default function S4_RouteResult() {
                         onClick={() =>
                             setIsTimeModalOpen(true)
                         }
-                        className="flex-none w-1/3 bg-gray-500 text-white py-4 rounded-xl font-bold text-[15px] shadow-sm active:bg-gray-600 transition-colors"
+                        className="flex-none w-1/3 bg-gray-500 text-white py-4 rounded-xl font-bold text-sm shadow-sm active:bg-gray-600 transition-colors"
                     >
                         다른시간 출발
                     </button>
 
-                    <button
+                    <Button
                         type="button"
                         onClick={
                             handleStartNavigation
                         }
                         disabled={!selectedRoute}
-                        className="flex-1 bg-brand-600 text-white py-4 rounded-xl font-bold text-lg shadow-md active:bg-brand-700 transition-colors disabled:bg-gray-400"
+                        fullWidth={false} className="flex-1"
                     >
                         안내시작
-                    </button>
+                    </Button>
 
                 </div>
             </div>

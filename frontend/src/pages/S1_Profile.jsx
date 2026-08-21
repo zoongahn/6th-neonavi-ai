@@ -19,6 +19,7 @@ import {
 } from '../utils/profileStorage';
 
 
+import Button from '../components/Button';
 export default function S1() {
     const navigate = useNavigate();
     const location = useLocation();
@@ -348,20 +349,20 @@ export default function S1() {
                     </p>
                 )}
 
-                <button
+                <Button
                     type="button"
                     onClick={
                         handleBottomButtonClick
                     }
                     disabled={isSaving}
-                    className="w-full bg-brand-600 text-white font-bold py-3 rounded-lg disabled:bg-gray-400"
+                    
                 >
                     {isSaving
                         ? '저장 중...'
                         : isFromMyPage
                             ? '저장하기'
                             : '다음으로'}
-                </button>
+                </Button>
             </div>
         </div>
     );

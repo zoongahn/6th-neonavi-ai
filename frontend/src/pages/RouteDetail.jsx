@@ -188,7 +188,7 @@ export default function RouteDetail() {
                     <div className="flex items-center gap-2 flex-wrap">
                         <span
                             className={
-                                'text-xs font-bold px-2 py-1 rounded-md ' +
+                                'text-xs font-bold px-2 py-1 rounded-lg ' +
                                 (isTopRoute
                                     ? 'text-brand-600 bg-brand-50'
                                     : 'text-gray-500 bg-gray-100')
@@ -264,7 +264,7 @@ export default function RouteDetail() {
                 </div>
 
                 {/* 3. AI 경로 분석 (진행바 및 원본 데이터 유지) */}
-                <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                     <h3 className="text-lg font-bold text-gray-900 mb-4">
                         AI 경로 분석
                     </h3>
@@ -291,7 +291,7 @@ export default function RouteDetail() {
                         <h4 className="font-bold text-gray-800 mb-3">
                             원본 데이터
                         </h4>
-                        <table className="w-full text-sm">
+                        <table className="w-full text-sm tabular-nums">
                             <thead>
                                 <tr className="text-gray-500 text-xs border-b border-gray-100">
                                     <th className="font-medium pb-2 text-left">지표</th>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
+import Button from './Button';
 export default function DepartureTimeModal({ isOpen, onClose, onConfirm, initialTime }) {
     // initialTime이 'now'이면 현재 시간, 아니면 설정된 시간을 파싱
     const getInitialDateTime = () => {
@@ -99,16 +100,16 @@ export default function DepartureTimeModal({ isOpen, onClose, onConfirm, initial
                 <div className="flex gap-2 px-2">
                     <button
                         onClick={handleNowDepart}
-                        className="flex-none w-1/3 py-4 rounded-xl font-bold text-[16px] bg-gray-400 text-white active:bg-gray-500 transition-colors"
+                        className="flex-none w-1/3 py-4 rounded-xl font-bold text-base bg-gray-400 text-white active:bg-gray-500 transition-colors"
                     >
                         지금 출발
                     </button>
-                    <button
+                    <Button
                         onClick={handleConfirm}
-                        className="flex-1 py-4 rounded-xl font-bold text-[16px] bg-brand-600 text-white shadow-md active:bg-blue-700 transition-colors"
+                        fullWidth={false} className="flex-1"
                     >
                         확인
-                    </button>
+                    </Button>
                 </div>
             </div>
 

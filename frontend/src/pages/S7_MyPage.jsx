@@ -17,6 +17,7 @@ import {
 import Icon from '../components/Icon';
 
 
+import Button from '../components/Button';
 const SAVED_LOCATIONS_KEY =
     'neonaviSavedLocations';
 
@@ -383,17 +384,17 @@ export default function S7() {
                         )}
 
                         <div className="flex gap-2 mt-3">
-                            <button
+                            <Button
                                 type="button"
                                 onClick={() =>
                                     saveLocation(
                                         'home'
                                     )
                                 }
-                                className="flex-1 py-3 rounded-xl bg-brand-600 text-white font-bold hover:bg-brand-700 transition"
+                                size="md" fullWidth={false} className="flex-1"
                             >
                                 집 저장
-                            </button>
+                            </Button>
 
                             {savedLocations.home && (
                                 <button
@@ -470,17 +471,17 @@ export default function S7() {
                         )}
 
                         <div className="flex gap-2 mt-3">
-                            <button
+                            <Button
                                 type="button"
                                 onClick={() =>
                                     saveLocation(
                                         'company'
                                     )
                                 }
-                                className="flex-1 py-3 rounded-xl bg-brand-600 text-white font-bold hover:bg-brand-700 transition"
+                                size="md" fullWidth={false} className="flex-1"
                             >
                                 회사 저장
-                            </button>
+                            </Button>
 
                             {savedLocations.company && (
                                 <button

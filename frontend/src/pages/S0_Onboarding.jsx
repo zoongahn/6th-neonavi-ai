@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import BrandMark from '../components/BrandMark';
 import { hasUsableProfile } from '../utils/profileStorage';
 
+import Button from '../components/Button';
 export default function S0() {
     const navigate = useNavigate();
 
@@ -29,16 +30,16 @@ export default function S0() {
                 {/* 앱 로고 */}
                 <BrandMark
                     size={96}
-                    className="mb-10 rounded-[2rem] shadow-[0_10px_25px_rgba(79,70,229,0.3)]"
+                    className="mb-10 rounded-2xl shadow-[0_10px_25px_rgba(79,70,229,0.3)]"
                 />
 
                 {/* 메인 타이틀  */}
-                <h1 className="text-gray-900 text-[32px] font-extrabold text-center leading-[1.35] mb-5 tracking-tight">
+                <h1 className="text-gray-900 text-3xl font-extrabold text-center leading-[1.35] mb-5 tracking-tight">
                     너만을 위한<br />맞춤 내비, <span className="text-brand-600">너네비</span>
                 </h1>
 
                 {/* 서브 설명 텍스트  */}
-                <p className="text-gray-500 text-center text-[16px] font-medium leading-relaxed">
+                <p className="text-gray-500 text-center text-base font-medium leading-relaxed">
                     운전자의 성향과 동승자를 분석하여<br />
                     가장 편안하고 안전한 길을 찾아드려요.
                 </p>
@@ -48,17 +49,17 @@ export default function S0() {
             {/* 하단 고정 '시작하기' 버튼 */}
             <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg px-5 py-6 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent z-[9999]">
                 {!isReady && (
-                    <p className="text-center text-[13px] text-gray-500 font-medium mb-3">
+                    <p className="text-center text-xs text-gray-500 font-medium mb-3">
                         성향을 추론하려면 기본 정보가 먼저 필요해요
                     </p>
                 )}
 
-                <button
+                <Button
                     onClick={handleStart}
-                    className="w-full bg-brand-600 text-white py-4 rounded-2xl font-bold text-[17px] shadow-[0_8px_20px_rgba(79,70,229,0.3)] hover:bg-brand-700 active:scale-95 transition-transform"
+                    className="shadow-[0_8px_20px_rgba(79,70,229,0.3)]"
                 >
                     {isReady ? '시작하기' : '기본 정보 입력하고 시작하기'}
-                </button>
+                </Button>
             </div>
 
         </div>

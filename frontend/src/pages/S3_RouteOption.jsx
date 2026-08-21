@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import TopNavBar from '../components/TopNavBar';
 
+import Button from '../components/Button';
 const TRIP_STORAGE_KEY = 'neonaviTrip';
 
 function readSavedTrip() {
@@ -144,13 +145,13 @@ export default function S3_RouteOption() {
             </main>
 
             <div className="w-full bg-white px-6 pt-3 pb-8">
-                <button
+                <Button
                     type="button"
                     onClick={handleRecommend}
-                    className="w-full bg-brand-600 text-white py-4 rounded-xl font-bold text-lg shadow-sm active:bg-brand-700 transition-colors"
+                    
                 >
                     분석하고 경로 추천받기
-                </button>
+                </Button>
             </div>
         </div>
     );

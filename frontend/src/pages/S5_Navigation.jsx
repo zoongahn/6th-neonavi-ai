@@ -362,7 +362,7 @@ export default function S5_Navigation() {
                     <div className="flex-1 min-w-0">
                         {onRoute ? (
                             <>
-                                <div className="text-3xl font-extrabold mb-1">
+                                <div className="text-3xl font-extrabold mb-1 tabular-nums">
                                     {step ? formatDistance(step.remainM) : formatDistance(remainM)}
                                 </div>
                                 <div className="text-lg font-medium opacity-90 break-words">
@@ -488,7 +488,7 @@ export default function S5_Navigation() {
             <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] p-6 z-10">
                 <div className="flex justify-between items-end gap-3 mb-4">
                     <div className="min-w-0">
-                        <div className="text-3xl font-extrabold text-gray-900">
+                        <div className="text-3xl font-extrabold text-gray-900 tabular-nums">
                             {onRoute ? `${arrivalText} 도착` : selectedRoute.arrivalTime || '—'}
                         </div>
                         <div className="text-gray-500 font-medium mt-1">
