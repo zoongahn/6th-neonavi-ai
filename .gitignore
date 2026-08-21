@@ -24,6 +24,9 @@ dist-ssr/
 # ---- AI / 데이터 (대용량) ----
 /ai/data/**
 !/ai/data/.gitkeep
+# 배포에 필요한 유일한 산출물. 22.5KB(파라미터 1,062개)라 크지도, 개인정보도
+# 아니다. 서빙은 torch 없이 이 파일로 추론하므로 빠지면 배포본이 아예 못 뜬다.
+!/ai/data/model_weights.json
 *.pt
 *.pth
 *.ckpt

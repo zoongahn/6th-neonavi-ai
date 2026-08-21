@@ -7,36 +7,150 @@ score = w · f (w=User Tower 성향 가중치, f=Route Tower 축 만족도).
    '규칙을 이긴다'가 아니라 미정의 조합 일반화·특성 상호작용·부드러운 스코어.
 baseline_b 와 동일한 Recommendation 을 반환해 서빙에서 교체 가능.
 """
+import json
+import math
 import os
-
-import torch
 
 from ..schema import Recommendation, PREFERENCE_AXES, AXIS_KOR
 from ..features import vectorize
 from ..encoders import encode_profile, feature_row
-from ..models.two_tower import TwoTower
 from . import reasons
 
 _DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
 _DEFAULT_CKPT = os.path.join(_DATA_DIR, 'model_a.pt')
+_DEFAULT_WEIGHTS = os.path.join(_DATA_DIR, 'model_weights.json')
 
+
+"""
+추론 백엔드가 둘이다. **랭킹·설명 로직은 한 벌만 두고**, 두 백엔드가 같은
+인터페이스(파이썬 리스트 in/out)를 내놓게 해서 계산 방식만 갈아끼운다.
+
+  torch  학습에 쓰는 체크포인트(model_a.pt)를 그대로 로드. 기본값.
+  pure   가중치 JSON 만 읽어 순수 파이썬으로 계산(ai/export_weights.py).
+
+⚠️ 서빙에 torch 를 들고 가면 733MB 다. 모델은 파라미터 1,062개뿐이라 순수
+   파이썬으로 계산해도 되고, 그러면 배포 용량 22.5KB · 콜드스타트마다 torch
+   import 0.8초 절감이다. 정확도 손해는 float32↔float64 반올림뿐 —
+   무작위 2,000회 대조에서 점수 최대오차 2.6e-07, 랭킹 불일치 0건.
+   (서빙 마진은 0.27~0.37 이라 여섯 자릿수 아래다)
+   속도는 추론 자체가 69µs → 162µs 로 느려지지만, 추천 요청 전체가 3.7~4.4초라
+   0.004% 다. 학습은 계속 torch 로 한다.
+"""
+
+
+def _linear(x, W, b):
+    """nn.Linear — W 는 (out, in)."""
+    return [sum(wi * xi for wi, xi in zip(row, x)) + bj for row, bj in zip(W, b)]
+
+
+class _PureBackend:
+    """torch 없이 도는 Two-Tower forward."""
+
+    name = 'pure'
+    model = None            # torch 모듈이 없다(오프라인 도구는 torch 백엔드를 쓴다)
+
+    def __init__(self, weights_path):
+        with open(weights_path, encoding='utf-8') as f:
+            payload = json.load(f)
+        self._t = payload['tensors']
+
+    def _tower(self, rows, prefix, activation):
+        w0, b0 = self._t[f'{prefix}.net.0.weight'], self._t[f'{prefix}.net.0.bias']
+        w2, b2 = self._t[f'{prefix}.net.2.weight'], self._t[f'{prefix}.net.2.bias']
+        out = []
+        for x in rows:
+            h = _linear(x, w0, b0)
+            h = [v if v > 0 else 0.0 for v in h]        # ReLU
+            out.append(activation(_linear(h, w2, b2)))
+        return out
+
+    @staticmethod
+    def _softmax(v):
+        m = max(v)
+        e = [math.exp(a - m) for a in v]                # overflow 방지
+        s = sum(e)
+        return [a / s for a in e]
+
+    @staticmethod
+    def _sigmoid(v):
+        return [1.0 / (1.0 + math.exp(-a)) for a in v]
+
+    def weights(self, rows):
+        return self._tower(rows, 'user_tower', self._softmax)
+
+    def satisfaction(self, rows):
+        return self._tower(rows, 'route_tower', self._sigmoid)
+
+
+class _TorchBackend:
+    """학습 체크포인트를 그대로 쓰는 기존 경로."""
+
+    name = 'torch'
+
+    def __init__(self, ckpt_path):
+        import torch
+        from ..models.two_tower import TwoTower
+
+        self._torch = torch
+        ckpt = torch.load(ckpt_path, map_location='cpu', weights_only=False)
+        model = TwoTower(ckpt['user_dim'], ckpt['route_dim'], latent=ckpt.get('latent', 4))
+        model.load_state_dict(ckpt['state_dict'])
+        model.eval()
+        self.model = model
+
+    def _run(self, fn, rows):
+        with self._torch.no_grad():
+            t = self._torch.tensor(rows, dtype=self._torch.float32)
+            return fn(t).tolist()
+
+    def weights(self, rows):
+        return self._run(self.model.weights, rows)
+
+    def satisfaction(self, rows):
+        return self._run(self.model.satisfaction, rows)
 
 
 class LoadedModel:
-    """체크포인트 1개를 감싼 추론 핸들."""
+    """추론 핸들. 백엔드가 뭐든 리스트를 받고 리스트를 돌려준다."""
 
-    def __init__(self, model):
-        self.model = model
+    def __init__(self, backend):
+        self._backend = backend
+        # report.py·diagnose.py 가 torch 모듈을 직접 쓴다(오프라인 분석 도구).
+        self.model = getattr(backend, 'model', None)
+
+    @property
+    def engine(self) -> str:
+        return self._backend.name
+
+    def weights(self, rows) -> list:
+        """[[프로필 인코딩], ...] → [[축별 가중치 w], ...] (합=1)"""
+        return self._backend.weights(rows)
+
+    def satisfaction(self, rows) -> list:
+        """[[경로 특성], ...] → [[축별 만족도 f], ...] (0~1)"""
+        return self._backend.satisfaction(rows)
 
 
-def load_model(ckpt_path=None) -> LoadedModel:
-    """학습된 Two-Tower 체크포인트 로드."""
-    ckpt_path = ckpt_path or _DEFAULT_CKPT
-    ckpt = torch.load(ckpt_path, map_location='cpu', weights_only=False)
-    model = TwoTower(ckpt['user_dim'], ckpt['route_dim'], latent=ckpt.get('latent', 4))
-    model.load_state_dict(ckpt['state_dict'])
-    model.eval()
-    return LoadedModel(model)
+def load_model(ckpt_path=None, engine=None) -> LoadedModel:
+    """추론 핸들 로드.
+
+    engine: 'torch' | 'pure' | 'auto'(기본). 환경변수 NEONAVI_ENGINE 로도 준다.
+    'auto' 는 torch 가 있으면 torch, 없으면 pure — 배포 환경(torch 미설치)에서
+    설정 없이 자동으로 순수 파이썬으로 떨어지고, 로컬은 지금과 똑같이 돈다.
+    """
+    engine = (engine or os.environ.get('NEONAVI_ENGINE') or 'auto').lower()
+    if engine not in ('auto', 'torch', 'pure'):
+        raise ValueError(f'알 수 없는 엔진: {engine}')
+
+    if engine == 'pure':
+        return LoadedModel(_PureBackend(_DEFAULT_WEIGHTS))
+    if engine == 'torch':
+        return LoadedModel(_TorchBackend(ckpt_path or _DEFAULT_CKPT))
+
+    try:
+        return LoadedModel(_TorchBackend(ckpt_path or _DEFAULT_CKPT))
+    except ImportError:
+        return LoadedModel(_PureBackend(_DEFAULT_WEIGHTS))
 
 
 def _route_id(route, idx):
@@ -211,7 +325,6 @@ def _peer_avg(idx: int, feats: list) -> dict:
     return out
 
 
-@torch.no_grad()
 def recommend(user_profile, candidate_routes, model=None, enrich=False,
               weights=None) -> list:
     """모델 스코어링으로 점수 내림차순 Recommendation 리스트 반환.
@@ -223,18 +336,15 @@ def recommend(user_profile, candidate_routes, model=None, enrich=False,
     if not candidate_routes:
         return []
     handle = model or load_model()
-    m = handle.model
 
     # 학습과 동일: 후보집합 내 상대 정규화(vectorize.normalize)
     feats = [vectorize.build_feature_vector(r, enrich=enrich) for r in candidate_routes]
     norms = vectorize.normalize(feats)
-    user_x = torch.tensor([encode_profile(user_profile)], dtype=torch.float32)
-    route_x = torch.tensor([feature_row(n) for n in norms], dtype=torch.float32)
 
-    w = (torch.tensor([weights[a] for a in PREFERENCE_AXES], dtype=torch.float32)
-         if weights else m.weights(user_x)[0])     # (3,)
-    f = m.satisfaction(route_x)                    # (N, 4)
-    scores = (f * w).sum(dim=-1)                   # (N,)
+    w = ([float(weights[a]) for a in PREFERENCE_AXES] if weights
+         else handle.weights([encode_profile(user_profile)])[0])       # (3,)
+    f = handle.satisfaction([feature_row(n) for n in norms])           # (N, 3)
+    scores = [sum(wi * fi for wi, fi in zip(w, row)) for row in f]     # (N,)
     top = _pick_top(scores, feats)                 # 대안 설명의 기준점
     w_dict = {a: float(w[i]) for i, a in enumerate(PREFERENCE_AXES)}
 
@@ -281,7 +391,6 @@ REPRESENTATIVE_PROFILES = {
 }
 
 
-@torch.no_grad()
 def mode_weights(mode: str, model=None) -> dict:
     """사용자가 손으로 고른 모드 → 성향 가중치.
 
@@ -293,12 +402,10 @@ def mode_weights(mode: str, model=None) -> dict:
     if profile is None:
         raise ValueError(f'알 수 없는 모드: {mode}')
     handle = model or load_model()
-    w = handle.model.weights(
-        torch.tensor([encode_profile(profile)], dtype=torch.float32))[0]
+    w = handle.weights([encode_profile(profile)])[0]
     return {a: float(w[i]) for i, a in enumerate(PREFERENCE_AXES)}
 
 
-@torch.no_grad()
 def counterfactual_tops(candidate_routes, model=None, enrich=False) -> dict:
     """{모드: 그 성향이었다면 1순위였을 route_id}.
 
@@ -307,23 +414,22 @@ def counterfactual_tops(candidate_routes, model=None, enrich=False) -> dict:
     if not candidate_routes:
         return {}
     handle = model or load_model()
-    m = handle.model
 
     feats = [vectorize.build_feature_vector(r, enrich=enrich) for r in candidate_routes]
     norms = vectorize.normalize(feats)
-    f = m.satisfaction(torch.tensor([feature_row(n) for n in norms], dtype=torch.float32))
+    f = handle.satisfaction([feature_row(n) for n in norms])
 
     tops = {}
     for mode, profile in REPRESENTATIVE_PROFILES.items():
-        w = m.weights(torch.tensor([encode_profile(profile)], dtype=torch.float32))[0]
+        w = handle.weights([encode_profile(profile)])[0]
         # 배지도 랭킹과 같은 가드레일을 거쳐야 한다. 안 그러면 1순위에서 금지한
         # 경로를 "스포티 우선이라면 이 경로"라고 가리키게 된다.
-        idx = _pick_top((f * w).sum(dim=-1), feats)
+        scores = [sum(wi * fi for wi, fi in zip(w, row)) for row in f]
+        idx = _pick_top(scores, feats)
         tops[mode] = _route_id(candidate_routes[idx], idx)
     return tops
 
 
-@torch.no_grad()
 def describe_preference(user_profile, model=None, weights=None) -> dict:
     """무엇을 우선해 랭킹했는지 — 리스트 상단에 한 번만 보여줄 요약.
 
@@ -332,8 +438,7 @@ def describe_preference(user_profile, model=None, weights=None) -> dict:
     """
     if weights is None:
         handle = model or load_model()
-        w = handle.model.weights(
-            torch.tensor([encode_profile(user_profile)], dtype=torch.float32))[0]
+        w = handle.weights([encode_profile(user_profile)])[0]
         weights = {a: float(w[i]) for i, a in enumerate(PREFERENCE_AXES)}
     weights = {a: round(float(weights[a]), 3) for a in PREFERENCE_AXES}
     axis = max(weights, key=weights.get)

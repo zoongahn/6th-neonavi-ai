@@ -69,6 +69,11 @@ export const getRouteRecommendation = async (requestData) => {
     return pendingRecommendations.get(key);
 };
 
+/* 경로 상세의 LLM 설명 (RouteDetail 폴백).
+   추천 근거는 보통 추천 응답에 함께 실려 오므로, 이건 그 값이 없을 때만 쓴다. */
+export const explainRoute = async ({ profile, mode, axes }) =>
+    postJson('/api/routes/explain/', { profile, mode, axes });
+
 /* 주행 기록 저장 (S6_Feedback) — 서버에 남는 실사용 데이터.
    추천 경로와 실제로 고른 경로를 함께 보내야 '추천 수용률'을 셀 수 있다. */
 export const saveTrip = async (trip) => postJson('/api/trips/', trip);
