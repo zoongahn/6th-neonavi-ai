@@ -55,11 +55,22 @@ function toMeters(point, refLat) {
  * 한참 뒤/앞 구간에 붙어버린다. 그래서 직전 위치(fromIndex) 주변만 본다.
  * 그 창에서 너무 멀면(=이탈 의심) 그때만 전 구간을 훑는다.
  *
- * @returns {{index:number, distAlong:number, offsetM:number, lng:number, lat:number}}
+ * ⚠️ **'가장 가까움'은 '가장 이름'이 아니다.** 도심 경로는 초반에 블록을 한 바퀴
+ * 도는 일이 흔하다(중앙분리대로 좌회전 불가, 단지에서 큰길로 나가기 등).
+ * 그러면 경로선이 출발지 근처를 두 번 지나가는데, 두 번째 통과 지점이 진짜
+ * 출발점보다 몇 m 가깝기만 해도 거기 붙어 **"블록 도는 구간을 이미 달렸다"**가
+ * 된다(실측: 출발점 45m·재통과 1.8m → distAlong 372m). 그래서 아직 출발 전이면
+ * earliestWithin 을 줘서 **붙을 수 있는 가장 이른 지점**을 쓰게 한다.
+ *
+ * @param {number} opts.earliestWithin 이 거리(m) 안이면 뒤쪽 후보가 더 가까워도
+ *        먼저 만나는 구간에 붙인다. 0 이면 종전대로 최근접.
+ * @returns {{index:number, distAlong:number, offsetM:number, lng:number,
+ *           lat:number, heading:number}}
  *          index=붙은 구간의 시작 정점, distAlong=출발점부터의 선상 거리,
- *          offsetM=경로에서 벗어난 직선거리
+ *          offsetM=경로에서 벗어난 직선거리, heading=그 지점의 경로 진행방위
  */
-export function snapToPath(path, cum, point, fromIndex = 0, window = 60) {
+export function snapToPath(path, cum, point, fromIndex = 0, window = 60,
+                           { earliestWithin = 0 } = {}) {
     if (path.length < 2) {
         return {
             index: 0, distAlong: 0, offsetM: 0,
@@ -77,6 +88,24 @@ export function snapToPath(path, cum, point, fromIndex = 0, window = 60) {
         }
         return best;
     };
+
+    // 출발 전: 붙을 수 있는 **가장 이른** 구간을 쓴다. 진행거리는 0에서 시작해야
+    // 하므로, 뒤쪽 후보가 더 가깝다는 이유로 앞구간을 건너뛰면 안 된다.
+    if (earliestWithin > 0) {
+        for (let i = 0; i < path.length - 1; i += 1) {
+            const hit = projectOnSegment(path[i], path[i + 1], point);
+            if (hit.offsetM <= earliestWithin) {
+                return {
+                    ...hit,
+                    index: i,
+                    distAlong: cum[i] + hit.alongM,
+                    heading: bearing(path[i], path[i + 1]),
+                };
+            }
+        }
+        // 어느 구간에도 못 붙으면(=많이 떨어져 있음) 아래 최근접으로 넘어간다.
+        // 그 경우 화면은 '출발 대기'라 진행거리를 어차피 0 으로 둔다.
+    }
 
     const lo = Math.max(0, fromIndex - 5);
     const hi = Math.min(path.length - 1, fromIndex + window);

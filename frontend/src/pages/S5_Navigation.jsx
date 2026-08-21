@@ -16,6 +16,11 @@ const AXIS_TO_MODE = { sports: 'Sports', comfort: 'Comfort', fuel: 'Eco' };
 const ARRIVAL_M = 50;        // 남은거리가 이 아래면 도착으로 본다
 const OFF_ROUTE_M = 60;      // 경로에서 이만큼 벗어나면
 const OFF_ROUTE_MS = 5000;   // 이 시간 이상 지속돼야 이탈로 친다(신호 튐 방지)
+// 출발 전 스냅 허용 반경. 출발지를 도로에 붙이는 과정(카카오)과 GPS 오차를
+// 합쳐 100m 안팎까지 벌어질 수 있어 넉넉히 잡는다. 이 값이 '주행 시작' 판정은
+// 아니다 — 그건 OFF_ROUTE_M 이 따로 본다.
+const START_SNAP_M = 150;
+const BACKTRACK_M = 30;      // 이만큼의 후퇴는 신호 흔들림으로 보고 무시한다
 const SIM_SPEEDS = [40, 80, 160];
 
 export default function S5_Navigation() {
@@ -73,17 +78,44 @@ export default function S5_Navigation() {
     // 파생값이므로 렌더 중에 계산한다.
     const snapHintRef = useRef(0);
     const snapPathRef = useRef(path);
+    const maxAlongRef = useRef(0);
+    // 스냅 방식을 출발 전/후로 가르는데, state 는 이 계산보다 늦게 반영되므로
+    // ref 로도 들고 최신값을 본다.
+    const hasStartedRef = useRef(false);
     if (snapPathRef.current !== path) {
         // 경로가 바뀌면(모드 전환) 힌트도 처음부터
         snapPathRef.current = path;
         snapHintRef.current = 0;
+        maxAlongRef.current = 0;
     }
     const snapped = useMemo(() => {
         if (!position || !cum || path.length < 2) return null;
-        const hit = snapToPath(path, cum, position, snapHintRef.current);
+        const hit = snapToPath(path, cum, position, snapHintRef.current, 60, {
+            // 출발 전에는 '가장 가까운' 대신 '붙을 수 있는 가장 이른' 지점.
+            // 안 그러면 초반에 블록을 도는 경로에서, 경로선이 출발지 근처를
+            // 두 번 지나가는 탓에 두 번째 통과 지점에 붙어 그 구간을 이미
+            // 달린 것으로 잡힌다(출발지를 현위치로 찍어도 경로 중간에 서 있는
+            // 그림이 나오던 원인).
+            earliestWithin: hasStartedRef.current ? 0 : START_SNAP_M,
+        });
         snapHintRef.current = hit.index;
         return hit;
     }, [position, path, cum]);
+
+    /*
+        진행거리는 뒤로 가지 않는다. GPS 가 튀거나 경로가 자기 자신에 가까워지는
+        구간(나들목·지하차도)에서 한참 뒤로 붙으면 남은거리가 갑자기 늘어난다.
+        되돌아간 것처럼 보이는 값은 표시하지 않는다(BACKTRACK_M 만큼은 신호
+        흔들림으로 보고 허용).
+    */
+    const monotonicAlong = useMemo(() => {
+        if (!snapped) return 0;
+        if (snapped.distAlong + BACKTRACK_M < maxAlongRef.current) {
+            return maxAlongRef.current;
+        }
+        maxAlongRef.current = Math.max(maxAlongRef.current, snapped.distAlong);
+        return maxAlongRef.current;
+    }, [snapped]);
 
     /*
         아직 경로에 올라타지 않은 상태(= 출발 전).
@@ -102,10 +134,12 @@ export default function S5_Navigation() {
     useEffect(() => {
         if (snapped && snapped.offsetM <= OFF_ROUTE_M) setHasStarted(true);
     }, [snapped]);
+    hasStartedRef.current = hasStarted;
 
     // 경로가 바뀌면(모드 전환) 진행 상태를 처음으로
     useEffect(() => {
         setHasStarted(false);
+        hasStartedRef.current = false;
     }, [path]);
 
     const onRoute = hasStarted && snapped;
@@ -125,7 +159,7 @@ export default function S5_Navigation() {
         () => (position && path.length ? haversine(position, path[0]) : null),
         [position, path]
     );
-    const distAlong = onRoute ? snapped.distAlong : 0;
+    const distAlong = onRoute ? monotonicAlong : 0;
     const remainM = Math.max(0, totalM - distAlong);
     const step = useMemo(() => currentStep(steps, distAlong), [steps, distAlong]);
 

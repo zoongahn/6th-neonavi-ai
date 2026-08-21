@@ -74,6 +74,43 @@ describe('snapToPath', () => {
         expect(hit.heading).toBeCloseTo(0, 0);
     });
 
+    /*
+        도심 경로는 초반에 블록을 한 바퀴 도는 일이 흔하다(중앙분리대로 좌회전
+        불가 등). 그러면 경로선이 출발지 근처를 두 번 지나가는데, 두 번째 통과가
+        진짜 출발점보다 가까우면 거기 붙어 "그 구간을 이미 달렸다"가 된다.
+        실측: 출발점 45m · 재통과 1.8m → distAlong 372m.
+    */
+    describe('출발지 근처를 두 번 지나는 경로', () => {
+        // 동 → 남 → 서 로 한 바퀴 돈 뒤, 출발점 서쪽을 스치며 북상한다
+        const loop = [];
+        const put = (dx, dy) =>
+            loop.push({ lng: 127 + dx * 0.0001, lat: SEOUL_LAT + dy * 0.0001 });
+        for (let i = 0; i <= 8; i += 1) put(i, 0);
+        for (let i = 1; i <= 8; i += 1) put(8, -i);
+        for (let i = 7; i >= -1; i -= 1) put(i, -8);
+        for (let i = -7; i <= 20; i += 1) put(-1, i);
+        const lcum = cumulative(loop);
+        // 출발점보다 재통과 구간에 훨씬 가까운 지점
+        const me = { lng: 127 - 0.00008, lat: SEOUL_LAT + 0.0004 };
+
+        it('기본(최근접)은 뒤쪽 통과 지점에 붙는다', () => {
+            const hit = snapToPath(loop, lcum, me, 0);
+            expect(hit.distAlong).toBeGreaterThan(300);
+        });
+
+        it('earliestWithin 을 주면 시작점에 붙는다', () => {
+            const hit = snapToPath(loop, lcum, me, 0, 60, { earliestWithin: 150 });
+            expect(hit.index).toBe(0);
+            expect(hit.distAlong).toBeLessThan(5);
+        });
+
+        it('너무 멀면 earliestWithin 이어도 최근접으로 떨어진다', () => {
+            const far = { lng: 127.05, lat: SEOUL_LAT };
+            const hit = snapToPath(loop, lcum, far, 0, 60, { earliestWithin: 150 });
+            expect(hit.offsetM).toBeGreaterThan(150);
+        });
+    });
+
     it('옆으로 벗어난 점은 수직거리를 이탈거리로 준다', () => {
         // 경도 +0.001 ≈ 88m 동쪽
         const off = { lng: 127.001, lat: path[5].lat };
