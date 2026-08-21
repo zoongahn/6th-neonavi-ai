@@ -53,9 +53,15 @@ def _norm_int(v):
 
 # ── 전처리 빌드 (한 번, 캐시) ─────────────────────────────────────
 
+def _derived_dir() -> str:
+    """파생본이 있는 곳. 배포에서는 번들에 없을 수 있어 그때 받아 온다."""
+    from ..fetch_data import ensure
+    return os.path.join(ensure(), 'public', 'derived')
+
+
 def build_link_index(force=False):
     """수도권 LINK를 필터→(LineString[5186], road_rank, max_spd) 리스트로 캐시."""
-    cache = os.path.join(_DERIVED, 'links_5186.pkl')
+    cache = os.path.join(_derived_dir(), 'links_5186.pkl')
     if os.path.exists(cache) and not force:
         with open(cache, 'rb') as f:
             return pickle.load(f)
@@ -86,7 +92,7 @@ def build_link_index(force=False):
 
 def build_signal_intersections(force=False):
     """차량신호를 필터→격자 클러스터(교차로)→중심점[5186] 리스트로 캐시."""
-    cache = os.path.join(_DERIVED, 'signal_nodes_5186.pkl')
+    cache = os.path.join(_derived_dir(), 'signal_nodes_5186.pkl')
     if os.path.exists(cache) and not force:
         with open(cache, 'rb') as f:
             return pickle.load(f)

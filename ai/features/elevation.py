@@ -66,11 +66,20 @@ def _local_elevation(lng: float, lat: float):
 
 # ── 고도 캐시 ──────────────────────────────────────────────────────
 
+def _cache_path() -> str:
+    """고도 캐시 위치. 배포에서는 번들에 없을 수 있어 그때 받아 온다."""
+    try:
+        from ..fetch_data import ensure
+        return os.path.join(ensure(), 'elevation_cache.json')
+    except Exception:
+        return _CACHE_PATH
+
+
 def _load_cache() -> dict:
     global _cache
     if _cache is None:
         try:
-            with open(_CACHE_PATH, encoding='utf-8') as f:
+            with open(_cache_path(), encoding='utf-8') as f:
                 _cache = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             _cache = {}

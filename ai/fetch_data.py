@@ -44,8 +44,9 @@ EXPECTED = (
 )
 
 
-def _present() -> bool:
-    return all(os.path.exists(os.path.join(DATA_DIR, p)) for p in EXPECTED)
+def _present(base: str = None) -> bool:
+    base = base or DATA_DIR
+    return all(os.path.exists(os.path.join(base, p)) for p in EXPECTED)
 
 
 def _sha256(path: str) -> str:
@@ -56,10 +57,50 @@ def _sha256(path: str) -> str:
     return h.hexdigest()
 
 
-def fetch(force: bool = False) -> bool:
+def _writable_dir() -> str:
+    """데이터를 둘 수 있는 곳. 서버리스는 배포 디렉터리가 읽기전용이라 /tmp 로 뺀다."""
+    probe = os.path.join(DATA_DIR, '.write-probe')
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(probe, 'w') as f:
+            f.write('x')
+        os.remove(probe)
+        return DATA_DIR
+    except OSError:
+        alt = os.path.join(tempfile.gettempdir(), 'neonavi-data')
+        os.makedirs(alt, exist_ok=True)
+        return alt
+
+
+_resolved_dir = None
+
+
+def ensure() -> str:
+    """서빙 데이터가 있는 디렉터리를 돌려준다. 없으면 받아 온다.
+
+    빌드 때 `python -m ai.fetch_data` 로 미리 받아 두는 것이 정상 경로다.
+    다만 서버리스는 빌드 산출물이 함수 번들에 안 실릴 수 있어서, 그때는
+    첫 요청에서 쓰기 가능한 곳(/tmp)에 받아 쓴다. 인스턴스가 살아 있는 동안
+    유지되므로 콜드스타트당 한 번이다.
+    """
+    global _resolved_dir
+    if _resolved_dir:
+        return _resolved_dir
+    if _present(DATA_DIR):
+        _resolved_dir = DATA_DIR
+        return _resolved_dir
+    target = _writable_dir()
+    if not _present(target):
+        fetch(target=target)
+    _resolved_dir = target
+    return _resolved_dir
+
+
+def fetch(force: bool = False, target: str = None) -> bool:
     """데이터를 준비한다. 이미 있으면 건너뛴다. 성공하면 True."""
-    if _present() and not force:
-        print(f'데이터가 이미 있습니다: {DATA_DIR}')
+    base = target or DATA_DIR
+    if _present(base) and not force:
+        print(f'데이터가 이미 있습니다: {base}')
         return True
 
     print(f'내려받는 중: {URL}')
@@ -74,20 +115,20 @@ def fetch(force: bool = False) -> bool:
                 '체크섬이 다릅니다. 받다 끊겼거나 자산이 바뀌었습니다.\n'
                 f'  기대 {ARCHIVE_SHA256}\n  실제 {got}')
 
-        os.makedirs(DATA_DIR, exist_ok=True)
+        os.makedirs(base, exist_ok=True)
         with tarfile.open(archive) as tar:
             # 압축 파일이 바깥 경로를 가리키면 임의 위치를 덮어쓸 수 있다
             for member in tar.getmembers():
-                dest = os.path.realpath(os.path.join(DATA_DIR, member.name))
-                if not dest.startswith(os.path.realpath(DATA_DIR) + os.sep):
+                dest = os.path.realpath(os.path.join(base, member.name))
+                if not dest.startswith(os.path.realpath(base) + os.sep):
                     raise RuntimeError(f'압축 파일에 이상한 경로가 있습니다: {member.name}')
-            tar.extractall(DATA_DIR)
+            tar.extractall(base)
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
-    if not _present():
+    if not _present(base):
         raise RuntimeError('압축을 풀었는데 기대한 파일이 없습니다.')
-    print(f'완료: {DATA_DIR}')
+    print(f'완료: {base}')
     return True
 
 
