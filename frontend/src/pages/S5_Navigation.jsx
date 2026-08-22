@@ -8,7 +8,7 @@ import { readProfile } from '../utils/profileStorage';
 import { buildRecommendRequest } from '../utils/buildRecommendRequest';
 import { readTrip, writeTrip } from '../utils/tripStorage';
 import useDrivePosition from '../hooks/useDrivePosition';
-import { cumulative, formatDistance, haversine, snapToPath } from '../utils/geo';
+import { cumulative, formatDistance, haversine, snapToPath, formatDuration } from '../utils/geo';
 import { currentStep, prepareSteps } from '../utils/navSteps';
 
 /** 추론된 성향 축 → 버튼에 쓰는 모드 이름 */
@@ -298,7 +298,7 @@ export default function S5_Navigation() {
                 routeId: top.route_id,
                 title: top.title,
                 description: top.reason,
-                time: `${top.duration_min}분`,
+                time: formatDuration(top.duration_min),
                 distance: `${top.distance_km}km`,
                 fee: `${top.toll.toLocaleString()}원`,
                 durationMin: top.duration_min,
@@ -493,7 +493,7 @@ export default function S5_Navigation() {
                         </div>
                         <div className="text-gray-500 font-medium mt-1">
                             <span className="text-brand-600 font-bold">
-                                {onRoute ? `${Math.max(1, Math.round(remainMin))}분` : selectedRoute.time || '—'}
+                                {onRoute ? `${formatDuration(remainMin)}` : selectedRoute.time || '—'}
                             </span>
                             {onRoute ? ' 남음 · ' : ' · '}
                             {onRoute ? formatDistance(remainM) : selectedRoute.distance || '—'}

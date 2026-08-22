@@ -193,6 +193,17 @@ export function pointAtDistance(path, cum, dist) {
     };
 }
 
+/** 소요시간(분) → "45분" / "4시간 34분" / "2시간". 장거리(부산행 274분)에서
+    "274분"은 아무도 머리로 환산하지 않는다. */
+export function formatDuration(minutes) {
+    if (!Number.isFinite(minutes) || minutes < 0) return '—';
+    const m = Math.max(1, Math.round(minutes));
+    if (m < 60) return `${m}분`;
+    const h = Math.floor(m / 60);
+    const rest = m % 60;
+    return rest > 0 ? `${h}시간 ${rest}분` : `${h}시간`;
+}
+
 /** 남은거리(m) → "1.2km" / "300m" */
 export function formatDistance(meters) {
     if (!Number.isFinite(meters) || meters < 0) return '—';

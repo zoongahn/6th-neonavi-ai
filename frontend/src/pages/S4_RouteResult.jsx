@@ -11,9 +11,12 @@ import { buildRecommendRequest } from '../utils/buildRecommendRequest';
 import { readTrip, writeTrip } from '../utils/tripStorage';
 
 import Button from '../components/Button';
+import { formatDuration } from '../utils/geo';
+
 // 상세 화면에 다녀와도 경로를 다시 추천받지 않도록 결과를 잠깐 보관한다.
 // (여정 자체는 tripStorage 가 관리하므로 여기엔 추천 결과만 둔다.)
 const ROUTE_RESULT_CACHE_KEY = 'neonaviRouteResultSnapshot';
+
 
 export default function S4_RouteResult() {
     const navigate = useNavigate();
@@ -211,7 +214,7 @@ export default function S4_RouteResult() {
                     routeId: route.route_id,
                     title: route.title,
                     description: route.reason,
-                    time: `${route.duration_min}분`,
+                    time: formatDuration(route.duration_min),
                     arrivalTime: formatArrival(route.duration_min),
                     distance: `${route.distance_km}km`,
                     fee: `${route.toll.toLocaleString()}원`,
