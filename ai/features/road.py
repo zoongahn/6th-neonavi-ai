@@ -139,13 +139,43 @@ class PublicIndex:
     def _xy(lng, lat):
         return _to5186.transform(lng, lat)
 
+    # 도로 결합 비용은 경로 길이에 비례한다(주변 세그먼트 수 ∝ 길이).
+    # 400km(고양→부산)에서 shapely intersection 이 62만 번 → 87초 → 서버리스
+    # 60초 한도 초과로 추천이 통째로 죽었다. 이 특성들(고속비율·제한속도·신호밀도)은
+    # 길이 가중 **평균**이라, 긴 경로는 균등 간격 대표 구간만 봐도 통계가 유지된다.
+    SAMPLE_OVER_KM = 60.0      # 이 길이까지는 전 구간 계산 (수도권 O-D 는 전부 해당)
+    SAMPLE_WINDOWS = 24        # 초과 시: 균등 분포한 창 24개
+    SAMPLE_WIN_KM = 2.0        #        × 각 2km = 48km 분량만 계산
+
+    def _sample_line(self, line):
+        """장거리 경로를 균등 간격 대표 구간들로 줄인 MultiLineString 로."""
+        from shapely.ops import substring
+        from shapely.geometry import MultiLineString
+        total = line.length
+        win = self.SAMPLE_WIN_KM * 1000.0
+        step = total / self.SAMPLE_WINDOWS
+        parts = []
+        for i in range(self.SAMPLE_WINDOWS):
+            start = i * step
+            seg = substring(line, start, min(start + win, total))
+            if seg.length > 0:
+                parts.append(seg)
+        return MultiLineString(parts)
+
     def route_features(self, coords_lnglat) -> dict:
         """경로 좌표(WGS84 [(lng,lat)...]) → {road_type, speed_limit, signal_count}."""
         line = self._line_5186(coords_lnglat)
         if line is None or line.length <= 0:
             return {'road_type': 0.0, 'speed_limit': 0.0, 'signal_count': 0.0}
         dist_km = line.length / 1000.0
-        corridor = line.buffer(LINK_BUFFER_M)
+
+        sampled = line
+        sampled_km = dist_km
+        if dist_km > self.SAMPLE_OVER_KM:
+            sampled = self._sample_line(line)
+            sampled_km = sampled.length / 1000.0
+
+        corridor = sampled.buffer(LINK_BUFFER_M)
 
         tot = hw = spd_w = 0.0
         for idx in self.link_tree.query(corridor):
@@ -161,10 +191,11 @@ class PublicIndex:
         road_type = hw / tot if tot else 0.0
         speed_limit = spd_w / tot if tot else 0.0
 
-        sig_corridor = line.buffer(SIGNAL_BUFFER_M)
+        # 신호 밀도(개/km)도 같은 샘플 구간에서 센다 — 밀도라 분모도 샘플 길이.
+        sig_corridor = sampled.buffer(SIGNAL_BUFFER_M)
         n_sig = sum(1 for idx in self.node_tree.query(sig_corridor)
                     if self.node_pts[idx].within(sig_corridor))
-        signal_count = n_sig / dist_km if dist_km > 0 else 0.0
+        signal_count = n_sig / sampled_km if sampled_km > 0 else 0.0
 
         return {'road_type': road_type, 'speed_limit': speed_limit,
                 'signal_count': signal_count}
