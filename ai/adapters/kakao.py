@@ -211,6 +211,12 @@ def fetch_pool(
     # O-D 직선의 수직 단위벡터로 경유지 교란
     vx, vy = dx - ox, dy - oy
     length = math.hypot(vx, vy) or 1.0
+    # 장거리(직선 ≈60km↑)는 교란을 건너뛴다. 교란 폭이 1.3km 로 고정이라
+    # 400km 경로에선 사실상 같은 경로가 나와 중복 제거로 전부 떨어지는데,
+    # 그 헛걸음이 카카오 호출 6회 = 직렬 10초+ 다. 장거리 대안은 priorities
+    # (RECOMMEND/DISTANCE)만으로도 고속도로 노선이 갈린다.
+    if length > 0.55:                       # 도(degree) ≈ 60km
+        waypoint_fracs = ()
     px, py = -vy / length, vx / length
     # ⚠️ 교란 크기는 O-D 길이에 비례시킨다. 0.012도(≈1.3km) 고정이면 짧은 구간에서
     #    이탈이 경로의 절반이 되어, 골목을 뱅뱅 도는 1.7배 우회 경로가 만들어진다.
