@@ -287,14 +287,39 @@ def explain_route_detail(payload: dict) -> dict:
     # FE에서 넘겨준 선택된 경로의 특성 데이터
     route_axes = payload.get('axes', {})
     
+    def _axes_fallback() -> list:
+        """LLM 없이 axes 실값만으로 만드는 최소 근거. 지어내지 않는다 —
+        성향축 만족도는 추천 계산이 이미 낸 실제 값이다."""
+        from ai.schema import AXIS_KOR
+        cards = []
+        for axis, v in sorted(route_axes.items(), key=lambda kv: -float(kv[1] or 0))[:2]:
+            label = AXIS_KOR.get(axis, axis)
+            cards.append({'icon': 'axis', 'title': f'{label} 만족도 {float(v) * 100:.0f}점',
+                          'desc': f'이 경로는 {label} 기준에서 후보 대비 {float(v) * 100:.0f}점입니다.'})
+        return cards or [{'icon': 'map', 'title': '비슷한 조건의 경로',
+                          'desc': '후보 간 격차가 크지 않은 경로입니다.'}]
+
     try:
         # ⚠️ 여기서 import 한다. 최상위에 두면 gradio_client(+httpx·huggingface_hub)
         #    를 **모든 콜드스타트마다** 읽는다(로컬 실측 107ms). 추천 근거는 이제
         #    추천 계산에서 나오므로 이 경로는 폴백일 뿐이라, 쓸 때만 읽는다.
+        #
+        # ⚠️ 그리고 **시간 제한을 건다.** HF Space 는 한동안 안 쓰면 잠드는데,
+        #    깨어나길 기다리면 60초를 다 먹고 서버리스 한도(504)로 죽는다.
+        #    실측: 배포에서 explain 이 60.2초 → 504. 상세 화면은 평소엔 추천
+        #    응답에 실려온 근거를 쓰므로 이 경로는 직접 URL 진입 때만 탄다 —
+        #    그 사용자에게 1분 대기 후 에러보다, 8초 안에 실값 카드가 낫다.
+        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutTimeout
         from ai.xai_llm import generate_xai_reasons
 
-        # LLM에게 텍스트 생성을 요청 (2~3초 소요)
-        reasons = generate_xai_reasons(profile, mode, route_axes)
+        # with 블록을 쓰면 안 된다 — __exit__ 이 shutdown(wait=True) 라서
+        # 타임아웃이 나도 LLM 스레드가 끝날 때까지(실측 67초) 응답을 붙잡는다.
+        pool_ = ThreadPoolExecutor(max_workers=1)
+        try:
+            fut = pool_.submit(generate_xai_reasons, profile, mode, route_axes)
+            reasons = fut.result(timeout=8)
+        finally:
+            pool_.shutdown(wait=False, cancel_futures=True)
         return {"recommend_reasons": reasons}
-    except Exception as exc:
-        raise RecommendError(f'AI 상세 분석에 실패했습니다: {exc}') from exc
+    except Exception:
+        return {"recommend_reasons": _axes_fallback()}
