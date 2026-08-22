@@ -6,6 +6,7 @@ import { fetchTrips } from '../api/naviApi';
 import TopNavBar from '../components/TopNavBar';
 
 
+import { readProfile } from '../utils/profileStorage';
 const HISTORY_STORAGE_KEY = 'neonaviDriveHistories';
 
 const MODE_LABEL = { comfort: '편안함', sports: '스포티', eco: '경제성' };
@@ -95,7 +96,9 @@ export default function S7a() {
     useEffect(() => {
         let isActive = true;
 
-        fetchTrips().then((trips) => {
+        // 내 프로필의 기록만. id 를 안 넘기면 fetchTrips 가 서버 조회를 포기하고
+        // null 을 돌려주므로 로컬 기록이 그대로 남는다.
+        fetchTrips(readProfile()?.id).then((trips) => {
             if (!isActive || trips === null) return;   // null = 서버 응답 없음
             setHistories(trips.map(fromServerTrip));
         });
