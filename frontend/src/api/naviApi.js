@@ -99,9 +99,19 @@ export const saveFeedback = async (tripId, { rating, comment = '' }) =>
     postJson(`/api/trips/${tripId}/feedback/`, { rating, comment });
 
 /* 주행 기록 목록 (S7a_history). 서버가 없으면 null → 호출 측이 로컬 기록으로 대체 */
-export const fetchTrips = async () => {
+/*
+    ⚠️ profileId 없이 부르면 서버가 **모든 사용자의 기록**을 돌려준다
+    (로그인이 없는 데모 전제라 서버는 요청이 준 id 로만 거른다).
+    실제로 데스크탑·폰에서 서로 다른 프로필로 쓴 기록이 한 목록에 섞여 보였다.
+    프로필 id 가 없으면(서버 저장 전의 옛 프로필) 서버 조회를 포기하고
+    로컬 기록만 쓴다 — 남의 기록을 보여주는 것보다 낫다.
+*/
+export const fetchTrips = async (profileId) => {
+    if (profileId == null) return null;
     try {
-        const response = await fetch(`${BASE_URL}/api/trips/`);
+        const response = await fetch(
+            `${BASE_URL}/api/trips/?profile=${encodeURIComponent(profileId)}`
+        );
         if (!response.ok) return null;
         const data = await response.json();
         return data.trips || [];
