@@ -176,3 +176,30 @@ describe('formatDistance', () => {
         expect(formatDistance(-1)).toBe('—');
     });
 });
+
+describe('formatDuration', () => {
+    const { formatDuration } = require('./geo');
+
+    it('1시간 미만은 분으로', () => {
+        expect(formatDuration(45)).toBe('45분');
+        expect(formatDuration(59.4)).toBe('59분');
+    });
+
+    it('1시간 이상은 시간-분으로', () => {
+        // 부산행 274분을 "274분"으로 두면 아무도 머리로 환산하지 않는다
+        expect(formatDuration(274)).toBe('4시간 34분');
+        expect(formatDuration(60)).toBe('1시간');
+        expect(formatDuration(120)).toBe('2시간');
+        expect(formatDuration(61)).toBe('1시간 1분');
+    });
+
+    it('반올림이 시간 경계를 넘으면 시간으로 올린다', () => {
+        expect(formatDuration(59.6)).toBe('1시간');
+    });
+
+    it('0·음수·비정상 값', () => {
+        expect(formatDuration(0.4)).toBe('1분');   // 최소 1분 (0분 표시 방지)
+        expect(formatDuration(-3)).toBe('—');
+        expect(formatDuration(NaN)).toBe('—');
+    });
+});

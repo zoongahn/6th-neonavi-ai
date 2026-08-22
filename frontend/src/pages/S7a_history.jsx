@@ -7,6 +7,9 @@ import TopNavBar from '../components/TopNavBar';
 
 
 import { readProfile } from '../utils/profileStorage';
+import { formatDuration } from '../utils/geo';
+
+
 const HISTORY_STORAGE_KEY = 'neonaviDriveHistories';
 
 const MODE_LABEL = { comfort: '편안함', sports: '스포티', eco: '경제성' };
@@ -22,7 +25,7 @@ const fromServerTrip = (trip) => ({
     departure: trip.origin_name,
     destination: trip.destination_name,
     distance: trip.distance_km != null ? `${trip.distance_km}km` : '',
-    time: trip.duration_min != null ? `${Math.round(trip.duration_min)}분` : '',
+    time: trip.duration_min != null ? formatDuration(trip.duration_min) : '',
     mode: MODE_LABEL[trip.mode] || trip.mode || '',
     fee: trip.toll != null ? `${trip.toll}원` : '0원',
     rating: trip.rating || 0

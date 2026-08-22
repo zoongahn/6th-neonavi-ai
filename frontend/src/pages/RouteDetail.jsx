@@ -5,6 +5,7 @@ import Icon from '../components/Icon';
 import TopNavBar from '../components/TopNavBar';
 import { explainRoute } from '../api/naviApi';
 
+import { formatDuration } from '../utils/geo';
 /*
     성향 축은 sports/comfort/fuel 셋뿐이다. '안전성'은 2026-07-18 계약 개정에서
     삭제되고 comfort 로 흡수됐다 — 화면에 남겨 두면 없는 축의 점수를 보여주게 된다.
@@ -37,7 +38,7 @@ const RAW_ROWS = [
     ['fuel_cost', '예상 연료', (v) => `${v.toFixed(2)}L`],
     ['toll', '통행료', (v) => (v > 0 ? `${Math.round(v).toLocaleString()}원` : '없음')],
     ['distance_km', '총 거리', (v) => `${v.toFixed(1)}km`],
-    ['duration_min', '예상 시간', (v) => `${Math.round(v)}분`]
+    ['duration_min', '예상 시간', (v) => formatDuration(v)]
 ];
 
 // 0 이 '공백'이 아니라 실제 측정값인 특성 — 0 이어도 표에 남긴다.
